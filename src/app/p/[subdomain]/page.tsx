@@ -340,20 +340,7 @@ export default function PublishedPage() {
                       </div>
 
                       <div className="lg:col-span-5 relative">
-                        <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900 group">
-                          {content.imageUrl ? (
-                            <img 
-                              src={content.imageUrl} 
-                              alt={content.headline || 'Hero'} 
-                              className="w-full h-auto object-cover rounded-3xl group-hover:scale-105 transition-transform duration-500"
-                            />
-                          ) : (
-                            <div className="aspect-video bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-8 text-center space-y-4">
-                              <ShoppingBag className="h-16 w-16 text-primary animate-bounce" />
-                              <span className="text-sm font-black uppercase text-slate-300">Oferta Exclusiva Verificada</span>
-                            </div>
-                          )}
-                        </div>
+                        <HeroGallery content={content} pageData={pageData} />
                       </div>
                     </div>
                   </section>
@@ -376,47 +363,7 @@ export default function PublishedPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                           {pageData.selectedProductsData.map((prod: any, pIdx: number) => (
-                            <div key={prod.id || pIdx} className="bg-slate-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:border-emerald-500/50 transition-all group">
-                              <div>
-                                <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
-                                  <img 
-                                    src={prod.image || 'https://picsum.photos/seed/product/600/400'} 
-                                    alt={prod.name} 
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                  />
-                                  {prod.originalPrice && (
-                                    <span className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-lg">
-                                      OFERTA ESPECIAL
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="p-6 space-y-3">
-                                  <h3 className="font-bold text-lg text-white group-hover:text-emerald-400 transition-colors line-clamp-1">
-                                    {prod.name}
-                                  </h3>
-                                  <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
-                                    {prod.description || 'Producto exclusivo de formación con acceso directo y soporte completo.'}
-                                  </p>
-
-                                  <div className="flex items-baseline gap-2 pt-2">
-                                    <span className="text-2xl font-black text-emerald-400">${prod.price || 15} USD</span>
-                                    {prod.originalPrice && (
-                                      <span className="text-xs text-slate-500 line-through">${prod.originalPrice} USD</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="p-6 pt-0">
-                                <Button 
-                                  onClick={() => handleCtaClick(`/checkout?prod=${prod.id}&ref=${pageData.userId || ''}`)}
-                                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg transition-all"
-                                >
-                                  COMPRAR AHORA 🚀
-                                </Button>
-                              </div>
-                            </div>
+                            <StoreProductCard key={prod.id || pIdx} prod={prod} pageData={pageData} handleCtaClick={handleCtaClick} />
                           ))}
                         </div>
                       </div>
@@ -742,6 +689,138 @@ export default function PublishedPage() {
           <span>Soporte 24/7</span>
         </div>
       </footer>
+    </div>
+  )
+}
+
+function HeroGallery({ content, pageData }: { content: any; pageData: any }) {
+  const [activeIdx, setActiveIdx] = useState(0)
+
+  let images: string[] = []
+  if (Array.isArray(content.images) && content.images.length > 0) {
+    images = content.images
+  } else if (content.imageUrl) {
+    images = [content.imageUrl]
+  } else if (Array.isArray(pageData?.selectedProductsData) && pageData.selectedProductsData[0]) {
+    const prod = pageData.selectedProductsData[0]
+    images = prod.images && prod.images.length > 0
+      ? prod.images
+      : (prod.imageUrl ? [prod.imageUrl] : (prod.image ? [prod.image] : []))
+  }
+
+  if (images.length === 0) {
+    images = ['https://picsum.photos/seed/sync-store/800/450']
+  }
+
+  const activeImg = images[activeIdx] || images[0]
+
+  return (
+    <div className="space-y-4">
+      <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900 group">
+        <img 
+          src={activeImg} 
+          alt={content.headline || 'Hero'} 
+          className="w-full h-auto max-h-[480px] object-cover rounded-3xl group-hover:scale-105 transition-transform duration-500"
+        />
+        {images.length > 1 && (
+          <div className="absolute top-3 right-3 bg-slate-950/80 backdrop-blur-md text-[#FF5500] border border-[#FF5500]/30 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow-xl">
+            {activeIdx + 1} / {images.length} Fotos
+          </div>
+        )}
+      </div>
+
+      {images.length > 1 && (
+        <div className="flex items-center justify-center gap-2 overflow-x-auto py-1 scrollbar-none">
+          {images.map((img, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setActiveIdx(idx)}
+              className={`relative h-14 w-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                activeIdx === idx ? 'border-[#FF5500] scale-105 shadow-lg shadow-[#FF5500]/20' : 'border-white/10 hover:border-white/30 opacity-70'
+              }`}
+            >
+              <img src={img} alt="" className="object-cover w-full h-full" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StoreProductCard({ prod, pageData, handleCtaClick }: { prod: any; pageData: any; handleCtaClick: (url: string) => void }) {
+  const [activeImgIdx, setActiveImgIdx] = useState(0)
+
+  const imgs = prod.images && prod.images.length > 0
+    ? prod.images
+    : (prod.imageUrl ? [prod.imageUrl] : (prod.image ? [prod.image] : ['https://picsum.photos/seed/product/600/400']))
+
+  const activeImg = imgs[activeImgIdx] || imgs[0]
+
+  return (
+    <div className="bg-slate-950 border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between hover:border-emerald-500/50 transition-all group">
+      <div>
+        <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+          <img 
+            src={activeImg} 
+            alt={prod.name} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          {prod.originalPrice && (
+            <span className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-lg">
+              OFERTA ESPECIAL
+            </span>
+          )}
+          {imgs.length > 1 && (
+            <span className="absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur-md text-emerald-400 border border-emerald-500/30 text-[9px] font-black uppercase px-2.5 py-1 rounded-full">
+              📸 {imgs.length} Fotos
+            </span>
+          )}
+        </div>
+
+        {imgs.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto p-3 bg-slate-900/50 justify-center scrollbar-none border-b border-white/5">
+            {imgs.map((img: string, idx: number) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setActiveImgIdx(idx)}
+                className={`relative h-10 w-10 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${
+                  activeImgIdx === idx ? 'border-emerald-400 scale-105 shadow-md' : 'border-white/10 hover:border-white/20'
+                }`}
+              >
+                <img src={img} alt="" className="object-cover w-full h-full" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="p-6 space-y-3">
+          <h3 className="font-bold text-lg text-white group-hover:text-emerald-400 transition-colors line-clamp-1">
+            {prod.name}
+          </h3>
+          <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
+            {prod.description || 'Producto exclusivo de formación con acceso directo y soporte completo.'}
+          </p>
+
+          <div className="flex items-baseline gap-2 pt-2">
+            <span className="text-2xl font-black text-emerald-400">${prod.price || 15} USD</span>
+            {prod.originalPrice && (
+              <span className="text-xs text-slate-500 line-through">${prod.originalPrice} USD</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 pt-0">
+        <Button 
+          onClick={() => handleCtaClick(`/checkout/${prod.id}?ref=${pageData.userId || ''}`)}
+          className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg transition-all"
+        >
+          COMPRAR AHORA 🚀
+        </Button>
+      </div>
     </div>
   )
 }

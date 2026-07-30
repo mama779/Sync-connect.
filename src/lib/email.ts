@@ -8,6 +8,16 @@ import { doc, getDoc } from 'firebase/firestore';
  * Obtiene la configuración SMTP desde Firestore con fallback a cuenta maestra.
  */
 async function getSmtpConfig() {
+  if (process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+    return {
+      host: (process.env.SMTP_HOST || 'smtp.gmail.com').trim(),
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      user: process.env.SMTP_USER.trim(),
+      pass: process.env.SMTP_PASSWORD.trim(),
+      fromName: process.env.SMTP_FROM_NAME || 'Sync Connect',
+    };
+  }
+
   const { firestore } = initializeFirebase();
   try {
     const configDoc = await getDoc(doc(firestore, 'site_config', 'settings'));
@@ -77,8 +87,12 @@ export async function sendEmail({ to, subject, text, html, title }: { to: string
 
     return { success: true };
   } catch (error: any) {
-    console.error("Mail Send Error:", error.message);
-    return { success: false, error: error.message };
+    let errorMessage = error?.message || 'Error al enviar correo';
+    if (errorMessage.includes('535') || errorMessage.includes('Invalid login') || errorMessage.includes('Username and Password not accepted')) {
+      errorMessage = 'Error de autenticación SMTP (535): La dirección de correo o Contraseña de Aplicación no son válidas. Actualiza la Contraseña de Aplicación de Gmail en el Panel Administrador > Configuración SMTP.';
+    }
+    console.error("Mail Send Error:", errorMessage);
+    return { success: false, error: errorMessage };
   }
 }
 

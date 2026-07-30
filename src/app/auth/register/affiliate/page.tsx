@@ -17,6 +17,7 @@ import { doc, setDoc, increment, getDoc } from 'firebase/firestore'
 import { cn, getGoogleDriveDirectLink } from '@/lib/utils'
 import { NICA_BANKS } from '@/lib/constants'
 import { getFreeSpotsInfo, consumeFreeSpotIfEligible, FreeSpotInfo } from '@/lib/free-spots'
+import { loginWithGoogle, loginWithFacebook, loginWithTikTok } from '@/lib/social-auth'
 import placeholderData from '@/app/lib/placeholder-images.json'
 
 type Step = 'google' | 'payment'
@@ -106,135 +107,86 @@ function AffiliateRegisterContent() {
     }
   };
 
-  // Handle Google Login
-  const handleGoogleLogin = async () => {
+  const handleSocialLogin = async (providerType: 'google' | 'facebook' | 'tiktok') => {
     if (!auth || loading) return;
     setErrorMsg(null);
     setLoading(true);
     
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      if (providerType === 'google') {
+        await loginWithGoogle(auth);
+      } else if (providerType === 'facebook') {
+        await loginWithFacebook(auth);
+      } else {
+        await loginWithTikTok(auth);
+      }
       toast({
-        title: "Google Asociado",
-        description: "Cuenta de Google vinculada correctamente.",
+        title: "Cuenta Vinculada",
+        description: `Autenticación con ${providerType.toUpperCase()} exitosa.`,
       });
+      setStep('payment');
     } catch (error: any) {
       const isPopupClosed = error?.code === 'auth/popup-closed-by-user' || 
-                            error?.code === 'auth/cancelled-popup-request' ||
-                            error?.message?.includes('auth/popup-closed-by-user') ||
-                            error?.message?.includes('popup-closed-by-user') ||
-                            error?.message?.includes('cancelled-popup-request') ||
-                            error?.message?.includes('Pending promise was never set');
+                            error?.message?.includes('popup-closed-by-user');
 
       if (isPopupClosed) {
         toast({
           title: "Inicio de sesión cancelado",
-          description: "Se canceló o cerró la solicitud de autenticación.",
+          description: "Se cerró la solicitud de autenticación.",
         });
         return;
       }
 
-      const isPopupBlocked = error?.code === 'auth/popup-blocked' || 
-                             error?.message?.includes('popup-blocked') ||
-                             error?.message?.includes('popup blocked');
-
-      if (isPopupBlocked) {
-        toast({
-          title: "Ventana emergente bloqueada",
-          description: "El navegador bloqueó la ventana de inicio de sesión. Por favor, permite las ventanas emergentes o utiliza la opción de correo electrónico.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.error("Error de login con Google:", error);
-      if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('unauthorized-domain')) {
-        setErrorMsg("El dominio actual no está en 'Dominios autorizados' de Firebase. Puedes cambiar a la opción de Correo Electrónico para registrarte.");
-        setEmailAuthMode('email');
-      } else {
-        setErrorMsg("Fallo en la autenticación con Google. Intente de nuevo o utilice la opción de Correo Electrónico.");
-      }
+      console.error(`Error de login con ${providerType}:`, error);
+      setErrorMsg(`Fallo en la autenticación con ${providerType}. Intente con correo u otro proveedor.`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Send Email OTP (Option B)
-  const handleSendEmailOtp = async (e: React.FormEvent) => {
+  const handleGoogleLogin = () => handleSocialLogin('google');
+  const handleFacebookLogin = () => handleSocialLogin('facebook');
+  const handleTikTokLogin = () => handleSocialLogin('tiktok');
+
+  const [emailPasswordInput, setEmailPasswordInput] = useState('')
+
+  const handleDirectEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth || loading) return;
     const cleanEmail = emailInput.trim().toLowerCase();
+    const cleanPass = emailPasswordInput.trim();
+
     if (!cleanEmail || !cleanEmail.includes('@')) {
       setErrorMsg("Por favor, ingrese un correo electrónico válido.");
       return;
     }
-    setErrorMsg(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/send-verification-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, name: formData.firstName || cleanEmail.split('@')[0] })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setEmailOtpSent(true);
-        toast({
-          title: "Código Enviado a Tu Correo 📩",
-          description: `Se ha enviado un código de seguridad de 6 dígitos a ${cleanEmail}. Revisa tu bandeja de entrada o spam.`,
-          duration: 10000,
-        });
-      } else {
-        throw new Error(data.error || "No se pudo enviar el código de verificación.");
-      }
-    } catch (error: any) {
-      console.error("Error sending email OTP:", error);
-      setErrorMsg(error.message || "Ocurrió un error al enviar el código de verificación.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Verify Email OTP and Sign In/Up
-  const handleVerifyEmailOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (emailOtpInput.trim() !== emailOtpCode) {
-      setErrorMsg("El código de verificación de correo es incorrecto.");
+    if (!cleanPass || cleanPass.length < 6) {
+      setErrorMsg("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
+
     setErrorMsg(null);
     setLoading(true);
 
     try {
-      if (!auth) throw new Error("Servicio de autenticación no disponible.");
-      
-      const cleanEmail = emailInput.trim().toLowerCase();
-      const securePassword = `SyncConnectAffiliate2026!_${cleanEmail.split('@')[0]}`;
-      
       try {
-        await signInWithEmailAndPassword(auth, cleanEmail, securePassword);
-      } catch (signInErr: any) {
-        if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/wrong-password' || signInErr.code === 'auth/invalid-credential') {
-          try {
-            await createUserWithEmailAndPassword(auth, cleanEmail, securePassword);
-          } catch (signUpErr: any) {
-            console.error("Error registering with email otp:", signUpErr);
-            throw signUpErr;
-          }
+        await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
+      } catch (createErr: any) {
+        if (createErr.code === 'auth/email-already-in-use') {
+          await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
         } else {
-          throw signInErr;
+          throw createErr;
         }
       }
 
       toast({
-        title: "Correo Verificado",
-        description: "Su correo ha sido verificado e ingresado correctamente.",
+        title: "Correo Autenticado ✓",
+        description: "Acceso validado. Procediendo al registro de Socio Afiliado.",
       });
-    } catch (error: any) {
-      console.error("Error authenticating email otp user:", error);
-      setErrorMsg(`Error al verificar identidad: ${error.message || error}`);
+      setStep('payment');
+    } catch (err: any) {
+      console.error("Direct email register error:", err);
+      setErrorMsg("Error al autenticar con este correo. Verifique sus datos o intente con Google.");
     } finally {
       setLoading(false);
     }
@@ -251,13 +203,13 @@ function AffiliateRegisterContent() {
     const cleanEmail = auth.currentUser.email || '';
 
     try {
-      // Check if user is eligible for free registration (first 6 users)
+      // Check if user is eligible for free registration
       const currentFreeInfo = await getFreeSpotsInfo(db);
-      const isFree = currentFreeInfo.isFreeEligible;
+      const isFree = currentFreeInfo.isAffiliateFreeEligible;
       
       let wasFreeConsumed = false;
       if (isFree) {
-        wasFreeConsumed = await consumeFreeSpotIfEligible(db, uid, cleanEmail);
+        wasFreeConsumed = await consumeFreeSpotIfEligible(db, uid, cleanEmail, 'affiliate');
       }
 
       // Check if user is already registered in affiliates to avoid overwriting or duplicates
@@ -419,101 +371,93 @@ function AffiliateRegisterContent() {
               </div>
 
               {emailAuthMode === 'google' ? (
-                <Button 
-                  onClick={handleGoogleLogin} 
-                  disabled={loading || isUserLoading}
-                  className="w-full h-14 bg-white text-slate-900 hover:bg-slate-50 border border-[#888c8c] flex items-center justify-center gap-3 font-bold rounded-[3px] shadow-sm text-xs uppercase tracking-widest transition-all"
-                >
-                  {loading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <>
-                      <svg className="h-5 w-5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.6c-.28 1.5-.1.3-1.12 1.98l3.12 2.42c1.83-1.69 2.88-4.18 2.88-6.25z" />
-                        <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.12-2.42c-.87.59-2 .95-3.32.95-2.55 0-4.72-1.73-5.5-4.07L1.91 18.06C3.89 22 7.92 24 12 24z" />
-                        <path fill="#FBBC05" d="M6.5 15.55c-.2-.59-.31-1.22-.31-1.87s.11-1.28.31-1.87L1.91 9.39C.69 11.83 0 14.52 0 17.3s.69 5.47 1.91 7.91l4.59-3.66z" />
-                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43C17.96 1.19 15.24 0 12 0 7.92 0 3.89 2 1.91 5.94l4.59 3.66c.78-2.34 2.95-4.07 5.5-4.07z" />
+                <div className="space-y-3">
+                  <Button 
+                    onClick={handleGoogleLogin} 
+                    disabled={loading || isUserLoading}
+                    className="w-full h-13 bg-white text-slate-900 hover:bg-slate-50 border border-slate-300 flex items-center justify-center gap-3 font-black rounded-xl shadow-sm text-xs uppercase tracking-widest transition-all cursor-pointer"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <svg className="h-5 w-5" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.6c-.28 1.5-.1.3-1.12 1.98l3.12 2.42c1.83-1.69 2.88-4.18 2.88-6.25z" />
+                          <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.12-2.42c-.87.59-2 .95-3.32.95-2.55 0-4.72-1.73-5.5-4.07L1.91 18.06C3.89 22 7.92 24 12 24z" />
+                          <path fill="#FBBC05" d="M6.5 15.55c-.2-.59-.31-1.22-.31-1.87s.11-1.28.31-1.87L1.91 9.39C.69 11.83 0 14.52 0 17.3s.69 5.47 1.91 7.91l4.59-3.66z" />
+                          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43C17.96 1.19 15.24 0 12 0 7.92 0 3.89 2 1.91 5.94l4.59 3.66c.78-2.34 2.95-4.07 5.5-4.07z" />
+                        </svg>
+                        <span>Google</span>
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleFacebookLogin}
+                      disabled={loading}
+                      variant="outline"
+                      className="w-full h-11 border-slate-200 bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] font-black text-[10px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                       </svg>
-                      Asociar Cuenta de Google
-                    </>
-                  )}
-                </Button>
+                      <span>Facebook</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      onClick={handleTikTokLogin}
+                      disabled={loading}
+                      variant="outline"
+                      className="w-full h-11 border-slate-200 bg-black/5 hover:bg-black/10 text-slate-900 font-black text-[10px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.98-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.82.57-1.31 1.56-1.3 2.56.01.94.5 1.86 1.28 2.37.89.58 2.05.67 3.01.25.95-.41 1.63-1.31 1.81-2.31.12-.82.08-1.66.08-2.49V.02z"/>
+                      </svg>
+                      <span>TikTok</span>
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-4 text-left">
-                  {!emailOtpSent ? (
-                    <form onSubmit={handleSendEmailOtp} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-wider text-slate-500">Correo Electrónico</Label>
-                        <div className="relative">
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="nombre@empresa.com"
-                            value={emailInput}
-                            onChange={(e) => setEmailInput(e.target.value)}
-                            required
-                            className="h-12 rounded-[4px] border border-slate-300 focus:ring-primary pl-10 text-sm font-medium"
-                          />
-                          <Mail className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
-                        </div>
-                      </div>
-                      <Button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full h-12 bg-[#ff9900] hover:bg-[#e08800] text-white font-black text-xs uppercase tracking-widest rounded-[3px]"
-                      >
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar Código de Verificación"}
-                      </Button>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleVerifyEmailOtp} className="space-y-4">
-                      {emailOtpCode && (
-                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-[4px] space-y-2">
-                          <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" /> Simulador de Correo Activo
-                          </p>
-                          <p className="text-xs text-amber-700 font-medium">
-                            Se ha generado su código. Ingrese el código para verificar su identidad:
-                          </p>
-                          <div className="text-center py-2 bg-white border border-amber-100 rounded text-xl font-mono font-bold text-amber-900 tracking-widest select-all">
-                            {emailOtpCode}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-2">
-                        <Label htmlFor="emailOtp" className="text-[10px] font-black uppercase tracking-wider text-slate-500">Código de 6 dígitos</Label>
+                  <form onSubmit={handleDirectEmailRegister} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-wider text-slate-500">Correo Electrónico</Label>
+                      <div className="relative">
                         <Input
-                          id="emailOtp"
-                          type="text"
-                          maxLength={6}
-                          placeholder="000000"
-                          value={emailOtpInput}
-                          onChange={(e) => setEmailOtpInput(e.target.value.replace(/\D/g, ''))}
+                          id="email"
+                          type="email"
+                          placeholder="nombre@empresa.com"
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
                           required
-                          className="h-12 text-center text-lg font-mono tracking-widest rounded-[4px] border border-slate-300"
+                          className="h-12 rounded-xl border border-slate-300 focus:ring-primary pl-10 text-xs font-medium"
                         />
+                        <Mail className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
                       </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setEmailOtpSent(false)}
-                          className="flex-1 h-12 text-xs font-bold uppercase tracking-widest rounded-[3px]"
-                        >
-                          Atrás
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={loading}
-                          className="flex-1 h-12 bg-[#131921] hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-[3px]"
-                        >
-                          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verificar Código"}
-                        </Button>
-                      </div>
-                    </form>
-                  )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-wider text-slate-500">Contraseña</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={emailPasswordInput}
+                        onChange={(e) => setEmailPasswordInput(e.target.value)}
+                        required
+                        className="h-12 rounded-xl border border-slate-300 focus:ring-primary text-xs font-medium px-4"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full h-12 bg-[#ff9900] hover:bg-[#e08800] text-slate-950 font-black text-xs uppercase tracking-widest rounded-xl cursor-pointer"
+                    >
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continuar Registro con Correo"}
+                    </Button>
+                  </form>
                 </div>
               )}
             </div>

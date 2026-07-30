@@ -26,6 +26,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore'
 import { useToast } from '@/hooks/use-toast'
 import { SyncConnectLogo } from '@/components/SyncConnectLogo'
+import { loginWithGoogle, loginWithFacebook, loginWithTikTok } from '@/lib/social-auth'
 
 const ADMIN_EMAIL = 'affiliatesync0@gmail.com';
 
@@ -121,21 +122,27 @@ function LoginPageContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleSocialLogin = async (providerType: 'google' | 'facebook' | 'tiktok') => {
     if (!auth || loading) return;
     setErrorMsg(null);
     setLoading(true);
     setDomainError(null);
     
-    const provider = new GoogleAuthProvider();
     try {
-      await setPersistence(auth, browserLocalPersistence);
-      const result = await signInWithPopup(auth, provider);
+      let result;
+      if (providerType === 'google') {
+        result = await loginWithGoogle(auth);
+      } else if (providerType === 'facebook') {
+        result = await loginWithFacebook(auth);
+      } else {
+        result = await loginWithTikTok(auth);
+      }
+
       if (result?.user) {
         setIsRedirecting(true);
         toast({
           title: "Acceso autorizado",
-          description: "Estableciendo conexión segura con tu cuenta de Google...",
+          description: `Sesión iniciada con ${providerType.toUpperCase()} correctamente.`,
         });
         await checkUserRole(result.user.uid, result.user.email);
       }
@@ -144,7 +151,6 @@ function LoginPageContent() {
       
       const isPopupClosed = error?.code === 'auth/popup-closed-by-user' || 
                             error?.code === 'auth/cancelled-popup-request' ||
-                            error?.message?.includes('auth/popup-closed-by-user') ||
                             error?.message?.includes('popup-closed-by-user') ||
                             error?.message?.includes('cancelled-popup-request') ||
                             error?.message?.includes('Pending promise was never set');
@@ -164,36 +170,32 @@ function LoginPageContent() {
       if (isPopupBlocked) {
         toast({
           title: "Ventana emergente bloqueada",
-          description: "El navegador bloqueó la ventana de inicio de sesión. Por favor, permite las ventanas emergentes o inicia sesión en una nueva pestaña.",
+          description: "El navegador bloqueó la ventana de inicio de sesión.",
           variant: "destructive"
         });
         return;
       }
 
-      console.error("Error de login con Google:", error);
+      console.error(`Error de login con ${providerType}:`, error);
 
       const isDomainError = error?.code === 'auth/unauthorized-domain' || 
-                           error?.message?.includes('unauthorized-domain') ||
-                           error?.message?.includes('auth/unauthorized-domain');
+                           error?.message?.includes('unauthorized-domain');
       if (isDomainError) {
         setDomainError({
           show: true,
           domain: typeof window !== 'undefined' ? window.location.hostname : 'ais-dev-cxra4jpdiazkigux5gxcbj-801374469814.us-east1.run.app',
           projectId: 'gen-lang-client-0673094537'
         });
-        setErrorMsg("Este dominio de vista previa de AI Studio no está autorizado en tu proyecto de Firebase.");
+        setErrorMsg("Este dominio de vista previa no está autorizado en tu proyecto de Firebase.");
       } else {
-        setErrorMsg("No se pudo completar la autenticación con Google.");
+        setErrorMsg(`No se pudo completar la autenticación con ${providerType}.`);
       }
-      toast({
-        title: "Error de autenticación",
-        description: isDomainError 
-          ? "Dominio no autorizado en Firebase"
-          : "Intente nuevamente o verifique sus credenciales.",
-        variant: "destructive"
-      });
     }
   };
+
+  const handleGoogleLogin = () => handleSocialLogin('google');
+  const handleFacebookLogin = () => handleSocialLogin('facebook');
+  const handleTikTokLogin = () => handleSocialLogin('tiktok');
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -315,20 +317,48 @@ function LoginPageContent() {
               </span>
             </div>
 
-            <Button 
-              onClick={handleGoogleLogin}
-              variant="outline"
-              className="w-full h-13 border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm flex items-center justify-center gap-3 transition-all text-slate-800 dark:text-slate-200"
-              disabled={loading}
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.16H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.84l3.66-2.84z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.16l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335"/>
-              </svg>
-              CONTINUAR CON GOOGLE
-            </Button>
+            <div className="space-y-2.5">
+              <Button 
+                onClick={handleGoogleLogin}
+                variant="outline"
+                className="w-full h-12 border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-xl shadow-sm flex items-center justify-center gap-3 transition-all text-slate-800 dark:text-slate-200 cursor-pointer"
+                disabled={loading}
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.16H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.84l3.66-2.84z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.16l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335"/>
+                </svg>
+                CONTINUAR CON GOOGLE
+              </Button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  onClick={handleFacebookLogin}
+                  variant="outline"
+                  className="w-full h-11 border-slate-200 dark:border-white/10 bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] dark:text-blue-400 text-[10px] font-black uppercase tracking-wider rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  disabled={loading}
+                >
+                  <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  FACEBOOK
+                </Button>
+
+                <Button 
+                  onClick={handleTikTokLogin}
+                  variant="outline"
+                  className="w-full h-11 border-slate-200 dark:border-white/10 bg-black/10 dark:bg-white/10 hover:bg-black/20 text-slate-900 dark:text-white text-[10px] font-black uppercase tracking-wider rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  disabled={loading}
+                >
+                  <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.98-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.82.57-1.31 1.56-1.3 2.56.01.94.5 1.86 1.28 2.37.89.58 2.05.67 3.01.25.95-.41 1.63-1.31 1.81-2.31.12-.82.08-1.66.08-2.49V.02z"/>
+                  </svg>
+                  TIKTOK
+                </Button>
+              </div>
+            </div>
 
             {domainError && (
               <div className="mt-6 p-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-2xl space-y-3 text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-bottom-2">

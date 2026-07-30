@@ -2,12 +2,19 @@ import { Firestore, doc, getDoc, setDoc, updateDoc, increment } from 'firebase/f
 
 export interface FreeSpotInfo {
   enabled: boolean;
+  affiliateFreeEnabled: boolean;
+  sellerFreeEnabled: boolean;
+  buyerFreeEnabled: boolean;
   totalFreeSpots: number;
   usedFreeSpots: number;
   remainingFreeSpots: number;
   isFreeEligible: boolean;
+  isAffiliateFreeEligible: boolean;
+  isSellerFreeEligible: boolean;
+  isBuyerFreeEligible: boolean;
   affiliatePrice: number;
   sellerPrice: number;
+  buyerPrice: number;
   currency: string;
 }
 
@@ -16,18 +23,25 @@ export interface FreeSpotInfo {
  */
 export async function getFreeSpotsInfo(db: Firestore | null): Promise<FreeSpotInfo> {
   const defaults: FreeSpotInfo = {
-    enabled: false,
+    enabled: true,
+    affiliateFreeEnabled: true,
+    sellerFreeEnabled: true,
+    buyerFreeEnabled: true,
     totalFreeSpots: 6,
     usedFreeSpots: 0,
     remainingFreeSpots: 6,
-    isFreeEligible: false,
+    isFreeEligible: true,
+    isAffiliateFreeEligible: true,
+    isSellerFreeEligible: true,
+    isBuyerFreeEligible: true,
     affiliatePrice: 6,
     sellerPrice: 7,
+    buyerPrice: 0,
     currency: 'USD'
   };
 
   if (!db) {
-    return { ...defaults, usedFreeSpots: 6, remainingFreeSpots: 0 };
+    return defaults;
   }
 
   try {
@@ -36,23 +50,43 @@ export async function getFreeSpotsInfo(db: Firestore | null): Promise<FreeSpotIn
 
     if (snap.exists()) {
       const data = snap.data();
-      const enabled = Boolean(data.enabled);
+      const enabled = data.enabled !== undefined ? Boolean(data.enabled) : true;
+      const affiliateFreeEnabled = data.affiliateFreeEnabled !== undefined ? Boolean(data.affiliateFreeEnabled) : enabled;
+      const sellerFreeEnabled = data.sellerFreeEnabled !== undefined ? Boolean(data.sellerFreeEnabled) : enabled;
+      const buyerFreeEnabled = data.buyerFreeEnabled !== undefined ? Boolean(data.buyerFreeEnabled) : true;
+
       const totalFreeSpots = typeof data.totalSpots === 'number' ? data.totalSpots : 6;
       const usedFreeSpots = typeof data.usedSpots === 'number' ? data.usedSpots : 0;
       const remainingFreeSpots = Math.max(0, totalFreeSpots - usedFreeSpots);
-      const isFreeEligible = enabled && remainingFreeSpots > 0;
+
+      // General eligibility requires remaining spots if limit applies
+      const hasSpotsAvailable = remainingFreeSpots > 0;
+      const isFreeEligible = enabled && hasSpotsAvailable;
+
+      const isAffiliateFreeEligible = affiliateFreeEnabled && isFreeEligible;
+      const isSellerFreeEligible = sellerFreeEnabled && isFreeEligible;
+      const isBuyerFreeEligible = buyerFreeEnabled; // Buyers are free whenever buyerFreeEnabled is true
+
       const affiliatePrice = typeof data.affiliatePrice === 'number' ? data.affiliatePrice : 6;
       const sellerPrice = typeof data.sellerPrice === 'number' ? data.sellerPrice : 7;
+      const buyerPrice = typeof data.buyerPrice === 'number' ? data.buyerPrice : 0;
       const currency = data.currency || 'USD';
 
       return {
         enabled,
+        affiliateFreeEnabled,
+        sellerFreeEnabled,
+        buyerFreeEnabled,
         totalFreeSpots,
         usedFreeSpots,
         remainingFreeSpots,
         isFreeEligible,
+        isAffiliateFreeEligible,
+        isSellerFreeEligible,
+        isBuyerFreeEligible,
         affiliatePrice,
         sellerPrice,
+        buyerPrice,
         currency
       };
     } else {
@@ -60,7 +94,7 @@ export async function getFreeSpotsInfo(db: Firestore | null): Promise<FreeSpotIn
     }
   } catch (error) {
     console.error("Error fetching free spots info:", error);
-    return { ...defaults, usedFreeSpots: 6, remainingFreeSpots: 0 };
+    return defaults;
   }
 }
 
@@ -71,10 +105,14 @@ export async function setFreeInvitationsConfig(
   db: Firestore | null,
   config: { 
     enabled?: boolean; 
+    affiliateFreeEnabled?: boolean;
+    sellerFreeEnabled?: boolean;
+    buyerFreeEnabled?: boolean;
     totalSpots?: number; 
     usedSpots?: number;
     affiliatePrice?: number;
     sellerPrice?: number;
+    buyerPrice?: number;
     currency?: string;
   }
 ): Promise<boolean> {
@@ -93,13 +131,25 @@ export async function setFreeInvitationsConfig(
 }
 
 /**
- * Checks if free spot is available, consumes it by incrementing usedSpots counter, and returns true.
+ * Checks if free spot is available for the role, consumes it by incrementing usedSpots counter if applicable, and returns true.
  */
-export async function consumeFreeSpotIfEligible(db: Firestore | null, uid: string, email: string): Promise<boolean> {
+export async function consumeFreeSpotIfEligible(
+  db: Firestore | null, 
+  uid: string, 
+  email: string,
+  role: 'affiliate' | 'seller' | 'buyer' = 'affiliate'
+): Promise<boolean> {
   if (!db) return false;
   try {
     const info = await getFreeSpotsInfo(db);
-    if (info.isFreeEligible) {
+
+    if (role === 'buyer') {
+      return info.isBuyerFreeEligible;
+    }
+
+    const isEligible = role === 'seller' ? info.isSellerFreeEligible : info.isAffiliateFreeEligible;
+
+    if (isEligible) {
       const docRef = doc(db, 'site_config', 'free_invitations');
       await updateDoc(docRef, {
         usedSpots: increment(1),

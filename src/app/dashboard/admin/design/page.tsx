@@ -32,7 +32,7 @@ import {
 import { SyncConnectLogo } from '@/components/SyncConnectLogo'
 import { useToast } from '@/hooks/use-toast'
 import { useFirestore, setDocumentNonBlocking, useCollection, useMemoFirebase, useUser, useDoc } from '@/firebase'
-import { collection, doc } from 'firebase/firestore'
+import { collection, doc, setDoc } from 'firebase/firestore'
 import { getGoogleDriveDirectLink } from '@/lib/utils'
 import { testEmailConfig } from '@/lib/email'
 import { uploadImageToFirebaseStorage } from '@/firebase/storage-upload'
@@ -57,6 +57,9 @@ export default function AdminDesignPage() {
   const logoConfigRef = useMemoFirebase(() => db ? doc(db, 'site_config', 'site-logo') : null, [db]);
   const { data: logoData } = useDoc(logoConfigRef);
 
+  const settingsRef = useMemoFirebase(() => db ? doc(db, 'site_config', 'settings') : null, [db]);
+  const { data: settingsData } = useDoc(settingsRef);
+
   // Estados locales para el editor de Branding (Logo & Favicon)
   const [logoUrl, setLogoUrl] = useState('');
   const [faviconUrl, setFaviconUrl] = useState('');
@@ -64,13 +67,18 @@ export default function AdminDesignPage() {
   const [brandSub, setBrandSub] = useState('CONNECT');
 
   useEffect(() => {
-    if (logoData) {
-      if (logoData.imageUrl !== undefined) setLogoUrl(logoData.imageUrl || '');
-      if (logoData.faviconUrl !== undefined) setFaviconUrl(logoData.faviconUrl || '');
-      if (logoData.brandName) setBrandName(logoData.brandName);
-      if (logoData.brandSub) setBrandSub(logoData.brandSub);
+    if (logoData || settingsData) {
+      const currentLogo = logoData?.imageUrl || settingsData?.siteLogoUrl || settingsData?.logoUrl;
+      const currentFavicon = logoData?.faviconUrl || settingsData?.faviconUrl;
+      const currentBrandName = logoData?.brandName || settingsData?.siteName;
+      const currentBrandSub = logoData?.brandSub;
+
+      if (currentLogo !== undefined && currentLogo !== '') setLogoUrl(currentLogo);
+      if (currentFavicon !== undefined && currentFavicon !== '') setFaviconUrl(currentFavicon);
+      if (currentBrandName) setBrandName(currentBrandName);
+      if (currentBrandSub) setBrandSub(currentBrandSub);
     }
-  }, [logoData]);
+  }, [logoData, settingsData]);
 
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
@@ -78,18 +86,18 @@ export default function AdminDesignPage() {
   const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ variant: "destructive", title: "Archivo muy grande", description: "El logo no debe superar los 5MB." });
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ variant: "destructive", title: "Archivo muy grande", description: "El logo no debe superar los 10MB." });
       return;
     }
     setIsUploadingLogo(true);
-    toast({ title: "Procesando Logo...", description: "Cargando archivo en Firebase Storage." });
+    toast({ title: "Procesando Logo...", description: "Comprimiendo y optimizando imagen del logo." });
     try {
-      const url = await uploadImageToFirebaseStorage(file, 'site-branding');
+      const url = await uploadImageToFirebaseStorage(file, 'site-branding', 600, 600);
       setLogoUrl(url);
-      toast({ title: "Logo Cargado en Firebase Storage ✓", description: "Referencia lista para ser guardada globalmente." });
+      toast({ title: "Logo Procesado con Éxito ✓", description: "Haz clic en 'GUARDAR LOGO Y FAVICON' para publicar los cambios." });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error de Carga", description: err?.message || "No se pudo subir la imagen." });
+      toast({ variant: "destructive", title: "Error de Carga", description: err?.message || "No se pudo procesar la imagen." });
     } finally {
       setIsUploadingLogo(false);
     }
@@ -98,18 +106,18 @@ export default function AdminDesignPage() {
   const handleFaviconFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ variant: "destructive", title: "Archivo muy grande", description: "El favicon no debe superar los 2MB." });
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ variant: "destructive", title: "Archivo muy grande", description: "El favicon no debe superar los 5MB." });
       return;
     }
     setIsUploadingFavicon(true);
-    toast({ title: "Procesando Favicon...", description: "Cargando archivo en Firebase Storage." });
+    toast({ title: "Procesando Favicon...", description: "Comprimiendo y optimizando favicon (128x128)." });
     try {
-      const url = await uploadImageToFirebaseStorage(file, 'site-branding');
+      const url = await uploadImageToFirebaseStorage(file, 'site-branding', 128, 128);
       setFaviconUrl(url);
-      toast({ title: "Favicon Cargado en Firebase Storage ✓", description: "Referencia lista para ser guardada globalmente." });
+      toast({ title: "Favicon Procesado con Éxito ✓", description: "Haz clic en 'GUARDAR LOGO Y FAVICON' para publicar los cambios." });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error de Carga", description: err?.message || "No se pudo subir la imagen." });
+      toast({ variant: "destructive", title: "Error de Carga", description: err?.message || "No se pudo procesar la imagen." });
     } finally {
       setIsUploadingFavicon(false);
     }
@@ -126,12 +134,22 @@ export default function AdminDesignPage() {
         brandSub: brandSub.trim(),
         updatedAt: new Date().toISOString()
       };
-      setDocumentNonBlocking(doc(db, 'site_config', 'site-logo'), payload, { merge: true });
-      setDocumentNonBlocking(doc(db, 'site_config', 'settings'), { siteLogoUrl: logoUrl.trim(), faviconUrl: faviconUrl.trim() }, { merge: true });
-      
-      toast({ title: "¡Identidad Visual Guardada! ✓", description: "El nuevo logo y favicon se han aplicado en toda la plataforma." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error al guardar la identidad visual" });
+
+      const settingsPayload = {
+        siteLogoUrl: logoUrl.trim(),
+        logoUrl: logoUrl.trim(),
+        faviconUrl: faviconUrl.trim(),
+        siteName: brandName.trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'site_config', 'site-logo'), payload, { merge: true });
+      await setDoc(doc(db, 'site_config', 'settings'), settingsPayload, { merge: true });
+
+      toast({ title: "¡Identidad Visual Guardada! ✓", description: "El nuevo logo y favicon se han guardado y aplicado en toda la plataforma." });
+    } catch (e: any) {
+      console.error("Error guardando branding:", e);
+      toast({ variant: "destructive", title: "Error al guardar la identidad visual", description: e?.message || "No se pudo actualizar en Firestore." });
     } finally {
       setTimeout(() => setSavingId(null), 800);
     }

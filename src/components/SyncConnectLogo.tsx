@@ -1,8 +1,7 @@
 "use client"
 
-import React from 'react';
+import React, { useState } from 'react';
 import { cn, getGoogleDriveDirectLink } from '@/lib/utils';
-import Image from 'next/image';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
@@ -25,10 +24,17 @@ export function SyncConnectLogo({
 }: SyncConnectLogoProps) {
   const db = useFirestore();
   const logoConfigRef = useMemoFirebase(() => (db ? doc(db, 'site_config', 'site-logo') : null), [db]);
+  const settingsRef = useMemoFirebase(() => (db ? doc(db, 'site_config', 'settings') : null), [db]);
+  
   const { data: logoOverride } = useDoc(logoConfigRef);
+  const { data: settingsOverride } = useDoc(settingsRef);
+  const [imgError, setImgError] = useState(false);
 
-  const activeImageUrl = customImageUrl || logoOverride?.imageUrl;
+  const activeImageUrl = customImageUrl || logoOverride?.imageUrl || settingsOverride?.siteLogoUrl || settingsOverride?.logoUrl;
   const directLink = getGoogleDriveDirectLink(activeImageUrl);
+
+  const brandName = logoOverride?.brandName || settingsOverride?.siteName || 'SYNC';
+  const brandSub = logoOverride?.brandSub || 'CONNECT';
 
   const sizeMap = {
     sm: { icon: 32, text: 'text-base', sub: 'text-[8px]', height: 'h-8' },
@@ -39,16 +45,16 @@ export function SyncConnectLogo({
 
   const dim = sizeMap[size] || sizeMap.md;
 
-  if (useImage || directLink) {
-    const finalSrc = directLink || "/logo.png";
+  if ((useImage || directLink) && !imgError && directLink) {
     return (
       <div className={cn("inline-flex items-center gap-3 select-none group cursor-pointer", className)}>
-        {/* Rendered custom or default image logo */}
+        {/* Rendered custom or uploaded image logo */}
         <div className="relative shrink-0 flex items-center justify-center rounded-xl overflow-hidden" style={{ width: dim.icon, height: dim.icon }}>
           <img 
-            src={finalSrc} 
+            src={directLink} 
             alt="Logo" 
             className="w-full h-full object-contain drop-shadow-md"
+            onError={() => setImgError(true)}
           />
         </div>
         {showText && (
@@ -58,13 +64,13 @@ export function SyncConnectLogo({
               dim.text,
               variant === 'light' ? 'text-slate-900' : 'text-white'
             )}>
-              {logoOverride?.brandName || 'SYNC'}
+              {brandName}
             </span>
             <span className={cn(
               "font-black tracking-[0.3em] text-[#00D8FF] uppercase mt-0.5 drop-shadow-[0_0_8px_rgba(0,216,255,0.4)]",
               dim.sub
             )}>
-              {logoOverride?.brandSub || 'CONNECT'}
+              {brandSub}
             </span>
           </div>
         )}
@@ -121,23 +127,20 @@ export function SyncConnectLogo({
       {showText && (
         <div className="flex flex-col justify-center leading-none tracking-tight">
           <span className={cn(
-            "font-black tracking-wider uppercase font-sans text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]",
+            "font-black tracking-wider uppercase font-sans drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]",
             dim.text,
             variant === 'light' ? 'text-slate-900' : 'text-white'
           )}>
-            SYNC
+            {brandName}
           </span>
           <span className={cn(
             "font-black tracking-[0.3em] text-[#00D8FF] uppercase mt-0.5 drop-shadow-[0_0_8px_rgba(0,216,255,0.4)]",
             dim.sub
           )}>
-            CONNECT
+            {brandSub}
           </span>
         </div>
       )}
     </div>
   );
 }
-
-
-

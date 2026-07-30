@@ -905,12 +905,35 @@ export default function AffiliateSiteBuilderPage() {
                     </Select>
                   </div>
 
-                  {selectedCatalogProductId && selectedCatalogProductId !== 'custom' && (
-                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium flex items-center justify-between">
-                      <span>✓ Datos y enlace de afiliado cargados automáticamente desde el catálogo.</span>
-                      <span className="font-bold text-white underline cursor-pointer" onClick={() => setSelectedCatalogProductId('custom')}>Cambiar</span>
-                    </div>
-                  )}
+                  {selectedCatalogProductId && selectedCatalogProductId !== 'custom' && (() => {
+                    const selProd = catalogProducts.find(p => p.id === selectedCatalogProductId)
+                    if (!selProd) return null
+                    const pImgs = selProd.images && selProd.images.length > 0 
+                      ? selProd.images 
+                      : (selProd.imageUrl ? [selProd.imageUrl] : (selProd.image ? [selProd.image] : ['https://picsum.photos/200/200']))
+
+                    return (
+                      <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Datos y enlace de afiliado cargados desde el catálogo ({pImgs.length} Fotos cargadas)
+                          </span>
+                          <span className="font-bold text-white underline cursor-pointer hover:text-emerald-300" onClick={() => setSelectedCatalogProductId('custom')}>Cambiar</span>
+                        </div>
+
+                        {pImgs.length > 0 && (
+                          <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+                            <span className="text-[10px] text-slate-300 uppercase font-black shrink-0">Fotos del producto:</span>
+                            {pImgs.map((img: string, idx: number) => (
+                              <div key={idx} className="relative h-12 w-12 rounded-xl overflow-hidden border border-emerald-500/30 shrink-0 bg-slate-900">
+                                <img src={img} alt={`Foto ${idx+1}`} className="object-cover w-full h-full" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* FILA 1: TIPO DE PÁGINA Y CATEGORÍA */}

@@ -27,13 +27,15 @@ import {
   CheckCircle2,
   Sparkles,
   Gift,
-  Power
+  Power,
+  FileText
 } from 'lucide-react'
 import { useLanguage } from '@/components/language-context'
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, orderBy, limit, doc, getDoc, setDoc } from 'firebase/firestore'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
@@ -63,12 +65,22 @@ export default function AdminDashboard() {
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
   const [testEmailRecipient, setTestEmailRecipient] = useState('');
 
+  // Estados para Conexión Telegram Informativo e Instrucciones
+  const [telegramChannelUrl, setTelegramChannelUrl] = useState('https://t.me/SyncConnectOficial');
+  const [telegramBotUrl, setTelegramBotUrl] = useState('https://t.me/SyncConnectBot');
+  const [telegramInstructionsText, setTelegramInstructionsText] = useState('¡Bienvenido al Canal Oficial de Telegram! Aquí recibirás todas las instrucciones sobre el uso de la plataforma, estrategias de ventas, nuevos infoproductos en catálogo y comunicados en vivo.');
+  const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+
   // Estados para Invitaciones Gratuitas y Tarifas
-  const [freeInvitationsEnabled, setFreeInvitationsEnabled] = useState(false);
+  const [freeInvitationsEnabled, setFreeInvitationsEnabled] = useState(true);
+  const [freeAffiliateEnabled, setFreeAffiliateEnabled] = useState(true);
+  const [freeSellerEnabled, setFreeSellerEnabled] = useState(true);
+  const [freeBuyerEnabled, setFreeBuyerEnabled] = useState(true);
   const [freeTotalSpots, setFreeTotalSpots] = useState(6);
   const [freeUsedSpots, setFreeUsedSpots] = useState(0);
   const [freeAffiliatePrice, setFreeAffiliatePrice] = useState(6);
   const [freeSellerPrice, setFreeSellerPrice] = useState(7);
+  const [freeBuyerPrice, setFreeBuyerPrice] = useState(0);
   const [isSavingFreeConfig, setIsSavingFreeConfig] = useState(false);
   const [isSendingReminders, setIsSendingReminders] = useState(false);
 
@@ -108,6 +120,9 @@ export default function AdminDashboard() {
         }
         if (data.smtp_password) setSmtpPassword(data.smtp_password);
         if (data.smtp_from_name) setSmtpFromName(data.smtp_from_name);
+        if (data.telegram_channel_url) setTelegramChannelUrl(data.telegram_channel_url);
+        if (data.telegram_bot_url) setTelegramBotUrl(data.telegram_bot_url);
+        if (data.telegram_instructions_text) setTelegramInstructionsText(data.telegram_instructions_text);
       } else {
         setTestEmailRecipient('affiliatesync0@gmail.com');
       }
@@ -116,10 +131,14 @@ export default function AdminDashboard() {
     // Cargar configuración de Invitaciones Gratuitas
     getFreeSpotsInfo(db).then((info) => {
       setFreeInvitationsEnabled(info.enabled);
+      setFreeAffiliateEnabled(info.affiliateFreeEnabled);
+      setFreeSellerEnabled(info.sellerFreeEnabled);
+      setFreeBuyerEnabled(info.buyerFreeEnabled);
       setFreeTotalSpots(info.totalFreeSpots);
       setFreeUsedSpots(info.usedFreeSpots);
       setFreeAffiliatePrice(info.affiliatePrice || 6);
       setFreeSellerPrice(info.sellerPrice || 7);
+      setFreeBuyerPrice(info.buyerPrice || 0);
     }).catch(err => console.warn("Error cargando free spots config:", err));
   }, [db]);
 
@@ -130,15 +149,19 @@ export default function AdminDashboard() {
     try {
       const success = await setFreeInvitationsConfig(db, {
         enabled: freeInvitationsEnabled,
+        affiliateFreeEnabled: freeAffiliateEnabled,
+        sellerFreeEnabled: freeSellerEnabled,
+        buyerFreeEnabled: freeBuyerEnabled,
         totalSpots: Number(freeTotalSpots),
         usedSpots: Number(freeUsedSpots),
         affiliatePrice: Number(freeAffiliatePrice),
-        sellerPrice: Number(freeSellerPrice)
+        sellerPrice: Number(freeSellerPrice),
+        buyerPrice: Number(freeBuyerPrice)
       });
       if (success) {
         toast({ 
-          title: freeInvitationsEnabled ? "Invitaciones Gratuitas HABILITADAS ✓" : "Configuración Guardada ✓", 
-          description: `Tarifa Afiliados: $${freeAffiliatePrice} USD | Tarifa Vendedores: $${freeSellerPrice} USD.` 
+          title: "¡Configuración de Accesos Gratuitos Actualizada! ✓", 
+          description: `Vendedor: ${freeSellerEnabled ? 'GRATIS $0' : `$${freeSellerPrice} USD`} | Comprador: ${freeBuyerEnabled ? 'GRATIS $0' : 'Aprobación'} | Afiliado: ${freeAffiliateEnabled ? 'GRATIS $0' : `$${freeAffiliatePrice} USD`}` 
         });
       } else {
         throw new Error("No se pudo guardar en Firestore");
@@ -207,6 +230,33 @@ export default function AdminDashboard() {
       });
     } finally {
       setIsSavingSmtp(false);
+    }
+  };
+
+  const handleSaveTelegram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!db) return;
+    setIsSavingTelegram(true);
+    try {
+      await setDoc(doc(db, 'site_config', 'settings'), {
+        telegram_channel_url: telegramChannelUrl.trim(),
+        telegram_bot_url: telegramBotUrl.trim(),
+        telegram_instructions_text: telegramInstructionsText.trim(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast({ 
+        title: "Canal e Instrucciones de Telegram Guardados ✓", 
+        description: "Los enlaces y mensajes de Telegram ahora están disponibles para los usuarios y afiliados." 
+      });
+    } catch (err: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Error al guardar Telegram", 
+        description: err?.message || "No se pudo actualizar la configuración de Telegram." 
+      });
+    } finally {
+      setIsSavingTelegram(false);
     }
   };
 
@@ -657,51 +707,132 @@ export default function AdminDashboard() {
           <CardContent className="p-10 space-y-8">
             <form onSubmit={handleSaveFreeConfig} className="space-y-6">
               
-              {/* Interruptor Principal */}
-              <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
-                <Label className="text-xs font-black uppercase text-slate-700 block">
-                  Estado de Promoción de Invitaciones Gratuitas
-                </Label>
+              {/* Interruptor Principal y Controles Específicos por Rol */}
+              <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-6">
+                <div>
+                  <Label className="text-xs font-black uppercase text-slate-900 block mb-1">
+                    Control Global de Promoción ($0 USD)
+                  </Label>
+                  <p className="text-xs text-slate-500 font-medium">Interruptor general maestro para habilitar o pausar promociones de registro gratis.</p>
+                </div>
+
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <Button
                     type="button"
-                    onClick={() => setFreeInvitationsEnabled(true)}
-                    className={`w-full sm:w-1/2 h-14 rounded-xl font-black text-xs uppercase transition-all flex items-center justify-center gap-2 ${
+                    onClick={() => {
+                      setFreeInvitationsEnabled(true);
+                      setFreeSellerEnabled(true);
+                      setFreeBuyerEnabled(true);
+                      setFreeAffiliateEnabled(true);
+                    }}
+                    className={`w-full sm:w-1/2 h-12 rounded-xl font-black text-xs uppercase transition-all flex items-center justify-center gap-2 ${
                       freeInvitationsEnabled
                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 ring-2 ring-emerald-500'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                     }`}
                   >
-                    <CheckCircle2 className="h-5 w-5 text-emerald-300" />
-                    Habilitar Invitaciones ($0 USD)
+                    <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                    Habilitar Todos Gratis ($0 USD)
                   </Button>
 
                   <Button
                     type="button"
-                    onClick={() => setFreeInvitationsEnabled(false)}
-                    className={`w-full sm:w-1/2 h-14 rounded-xl font-black text-xs uppercase transition-all flex items-center justify-center gap-2 ${
+                    onClick={() => {
+                      setFreeInvitationsEnabled(false);
+                      setFreeSellerEnabled(false);
+                      setFreeAffiliateEnabled(false);
+                    }}
+                    className={`w-full sm:w-1/2 h-12 rounded-xl font-black text-xs uppercase transition-all flex items-center justify-center gap-2 ${
                       !freeInvitationsEnabled
                         ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-900/20 ring-2 ring-slate-800'
                         : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
                     }`}
                   >
-                    <Power className="h-5 w-5 text-rose-400" />
-                    Deshabilitar Invitaciones ($6 / $7 USD)
+                    <Power className="h-4 w-4 text-rose-400" />
+                    Deshabilitar Todos (Cobro Estándar)
                   </Button>
                 </div>
 
+                {/* Sub-toggles individuales por Rol: VENDEDOR, COMPRADOR, AFILIADO */}
+                <div className="pt-4 border-t border-slate-200 space-y-4">
+                  <Label className="text-xs font-black uppercase text-slate-800 block">
+                    Accesos Gratuitos Personalizados por Rol ($0 USD)
+                  </Label>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* TOGGLE VENDEDOR */}
+                    <div className={`p-4 rounded-xl border transition-all ${freeSellerEnabled ? 'bg-emerald-50/60 border-emerald-300' : 'bg-slate-100/60 border-slate-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-black uppercase text-slate-900">VENDEDOR / PRODUCCIÓN</span>
+                        <Badge className={freeSellerEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-400 text-white'}>
+                          {freeSellerEnabled ? 'GRATIS $0' : `$${freeSellerPrice} USD`}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mb-3">Acceso directo sin cobro para productores de productos.</p>
+                      <Button
+                        type="button"
+                        onClick={() => setFreeSellerEnabled(!freeSellerEnabled)}
+                        className={`w-full h-9 text-[11px] font-black uppercase rounded-lg ${
+                          freeSellerEnabled
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-slate-900 hover:bg-slate-800 text-white'
+                        }`}
+                      >
+                        {freeSellerEnabled ? '✓ HABILITADO (Desactivar)' : 'Activar Gratis $0'}
+                      </Button>
+                    </div>
+
+                    {/* TOGGLE COMPRADOR */}
+                    <div className={`p-4 rounded-xl border transition-all ${freeBuyerEnabled ? 'bg-emerald-50/60 border-emerald-300' : 'bg-slate-100/60 border-slate-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-black uppercase text-slate-900">COMPRADOR / CLIENTE</span>
+                        <Badge className={freeBuyerEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-400 text-white'}>
+                          {freeBuyerEnabled ? 'GRATIS $0' : 'APROBACIÓN'}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mb-3">Acceso para clientes que compran productos en la tienda.</p>
+                      <Button
+                        type="button"
+                        onClick={() => setFreeBuyerEnabled(!freeBuyerEnabled)}
+                        className={`w-full h-9 text-[11px] font-black uppercase rounded-lg ${
+                          freeBuyerEnabled
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-slate-900 hover:bg-slate-800 text-white'
+                        }`}
+                      >
+                        {freeBuyerEnabled ? '✓ HABILITADO (Desactivar)' : 'Activar Gratis $0'}
+                      </Button>
+                    </div>
+
+                    {/* TOGGLE AFILIADO */}
+                    <div className={`p-4 rounded-xl border transition-all ${freeAffiliateEnabled ? 'bg-emerald-50/60 border-emerald-300' : 'bg-slate-100/60 border-slate-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-black uppercase text-slate-900">AFILIADO / SOCIO</span>
+                        <Badge className={freeAffiliateEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-400 text-white'}>
+                          {freeAffiliateEnabled ? 'GRATIS $0' : `$${freeAffiliatePrice} USD`}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mb-3">Acceso para revendedores y promotores de la red.</p>
+                      <Button
+                        type="button"
+                        onClick={() => setFreeAffiliateEnabled(!freeAffiliateEnabled)}
+                        className={`w-full h-9 text-[11px] font-black uppercase rounded-lg ${
+                          freeAffiliateEnabled
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-slate-900 hover:bg-slate-800 text-white'
+                        }`}
+                      >
+                        {freeAffiliateEnabled ? '✓ HABILITADO (Desactivar)' : 'Activar Gratis $0'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 <p className="text-xs font-medium text-slate-500">
-                  {freeInvitationsEnabled ? (
-                    <span className="text-emerald-700 font-bold flex items-center gap-1.5">
-                      <Sparkles className="h-4 w-4 text-emerald-600" />
-                      ✓ Las invitaciones gratuitas están HABILITADAS. Los nuevos usuarios obtendrán membresía $0 USD si hay cupos.
-                    </span>
-                  ) : (
-                    <span className="text-slate-600 font-bold flex items-center gap-1.5">
-                      <Power className="h-4 w-4 text-slate-400" />
-                      🚫 Las invitaciones gratuitas están DESACTIVADAS. Todos los nuevos usuarios pagarán $6 USD (Afiliados) o $7 USD (Vendedores).
-                    </span>
-                  )}
+                  <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-emerald-600" />
+                    Resumen: Vendedor ({freeSellerEnabled ? 'GRATIS' : `$${freeSellerPrice} USD`}) | Comprador ({freeBuyerEnabled ? 'GRATIS' : 'Pendiente Aprobación'}) | Afiliado ({freeAffiliateEnabled ? 'GRATIS' : `$${freeAffiliatePrice} USD`})
+                  </span>
                 </p>
               </div>
 
@@ -751,25 +882,25 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Configuración de Tarifas de Activación (Vendedor $7 / Afiliado $6) */}
+              {/* Configuración de Tarifas de Activación (Vendedor $7 / Afiliado $6 / Comprador) */}
               <div className="pt-6 border-t space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                  Tarifas Estándar de Activación de Cuenta ($ USD)
+                  Valor del Acceso a la Plataforma por Rol ($ USD)
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-500">
                       Activación Afiliado ($ USD)
                     </Label>
                     <Input 
                       type="number"
-                      min="1"
+                      min="0"
                       value={freeAffiliatePrice}
                       onChange={(e) => setFreeAffiliatePrice(Number(e.target.value))}
                       required
                       className="h-12 font-mono text-sm font-bold rounded-xl bg-slate-50 border-none ring-1 ring-slate-200"
                     />
-                    <p className="text-[10px] text-slate-400">Precio base para afiliado (Predeterminado: $6 USD)</p>
+                    <p className="text-[10px] text-slate-400">Tarifa base para afiliados (Predeterminado: $6 USD)</p>
                   </div>
 
                   <div className="space-y-2">
@@ -778,13 +909,28 @@ export default function AdminDashboard() {
                     </Label>
                     <Input 
                       type="number"
-                      min="1"
+                      min="0"
                       value={freeSellerPrice}
                       onChange={(e) => setFreeSellerPrice(Number(e.target.value))}
                       required
                       className="h-12 font-mono text-sm font-bold rounded-xl bg-slate-50 border-none ring-1 ring-slate-200"
                     />
-                    <p className="text-[10px] text-slate-400">Precio base para vendedor (Predeterminado: $7 USD)</p>
+                    <p className="text-[10px] text-slate-400">Tarifa base para vendedores (Predeterminado: $7 USD)</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-500">
+                      Acceso Comprador / Cliente ($ USD)
+                    </Label>
+                    <Input 
+                      type="number"
+                      min="0"
+                      value={freeBuyerPrice}
+                      onChange={(e) => setFreeBuyerPrice(Number(e.target.value))}
+                      required
+                      className="h-12 font-mono text-sm font-bold rounded-xl bg-slate-50 border-none ring-1 ring-slate-200"
+                    />
+                    <p className="text-[10px] text-slate-400">Tarifa o cuota de acceso cliente ($0 USD o costo personalizado)</p>
                   </div>
                 </div>
               </div>
@@ -953,6 +1099,94 @@ export default function AdminDashboard() {
                   className="w-full sm:w-auto h-12 px-8 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black text-xs uppercase shadow-lg shadow-orange-500/20 active:scale-95"
                 >
                   {isSavingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Guardar Credenciales SMTP</>}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* PANEL DE CONFIGURACIÓN TELEGRAM INFORMATIVO E INSTRUCCIONES */}
+        <Card className="premium-card border-sky-500/20 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white">
+          <CardHeader className="border-b border-white/10 p-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle className="text-xl font-headline font-black uppercase italic text-white flex items-center gap-3">
+                <Send className="h-6 w-6 text-sky-400" /> Canal e Instrucciones de <span className="text-sky-400">Telegram</span>
+              </CardTitle>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Conecta tu canal oficial y grupo de soporte para enviar comunicados, guías e instrucciones a los usuarios
+              </p>
+            </div>
+            <Badge variant="outline" className="rounded-xl border-sky-500/30 text-sky-300 bg-sky-500/10 font-black text-[10px] tracking-wider uppercase h-8 px-4 flex items-center gap-2">
+              <Send className="h-3.5 w-3.5 text-sky-400" /> Telegram Conectado
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-10 space-y-8">
+            <form onSubmit={handleSaveTelegram} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Canal Oficial de Telegram */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-300 flex items-center gap-2">
+                    <Send className="h-3.5 w-3.5 text-sky-400" /> Enlace Canal Oficial de Telegram
+                  </Label>
+                  <Input 
+                    value={telegramChannelUrl}
+                    onChange={(e) => setTelegramChannelUrl(e.target.value)}
+                    placeholder="https://t.me/TuCanalOficial"
+                    required
+                    className="h-12 font-mono text-xs font-bold rounded-xl bg-slate-950/80 text-white border-white/10 focus:border-sky-400"
+                  />
+                  <p className="text-[10px] text-slate-400">Enlace donde los usuarios se unirán para recibir anuncios e instructivos.</p>
+                </div>
+
+                {/* Bot / Grupo de Soporte en Telegram */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-300 flex items-center gap-2">
+                    <Send className="h-3.5 w-3.5 text-sky-400" /> Bot o Grupo de Instrucciones / Soporte
+                  </Label>
+                  <Input 
+                    value={telegramBotUrl}
+                    onChange={(e) => setTelegramBotUrl(e.target.value)}
+                    placeholder="https://t.me/TuBotInstruccionesBot"
+                    required
+                    className="h-12 font-mono text-xs font-bold rounded-xl bg-slate-950/80 text-white border-white/10 focus:border-sky-400"
+                  />
+                  <p className="text-[10px] text-slate-400">Enlace directo a tu Bot o Grupo de Telegram de dudas y respuestas automáticas.</p>
+                </div>
+              </div>
+
+              {/* Mensaje de Instrucciones para la Plataforma */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-300 flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-sky-400" /> Instrucciones de Inicio para Nuevos Usuarios (Telegram)
+                </Label>
+                <Textarea 
+                  value={telegramInstructionsText}
+                  onChange={(e) => setTelegramInstructionsText(e.target.value)}
+                  rows={3}
+                  placeholder="Escribe el texto informativo de bienvenida y los pasos clave que verán los usuarios..."
+                  className="rounded-xl bg-slate-950/80 text-white border-white/10 text-xs font-medium focus:border-sky-400"
+                />
+                <p className="text-[10px] text-slate-400">Este mensaje se mostrará en los paneles de soporte e instrucción para guiar a tus afiliados y clientes.</p>
+              </div>
+
+              {/* BARRA DE ACCIONES TELEGRAM */}
+              <div className="pt-6 border-t border-white/10 flex items-center justify-between gap-4">
+                <a 
+                  href={telegramChannelUrl || '#'} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-xs text-sky-400 font-bold hover:underline flex items-center gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" /> Probar Apertura de Canal Telegram ↗
+                </a>
+
+                <Button
+                  type="submit"
+                  disabled={isSavingTelegram}
+                  className="h-12 px-8 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase shadow-lg shadow-sky-500/20 active:scale-95 transition-all"
+                >
+                  {isSavingTelegram ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Guardar Conexión Telegram</>}
                 </Button>
               </div>
             </form>

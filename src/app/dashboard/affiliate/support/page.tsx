@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { useUser, useFirestore, useMemoFirebase, useCollection } from "@/firebase"
-import { collection, addDoc, query, where, orderBy, doc, updateDoc, arrayUnion } from "firebase/firestore"
+import { collection, addDoc, query, where, orderBy, doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore"
 import { 
   MessageCircle, 
   Send, 
@@ -57,6 +57,23 @@ export default function AffiliateSupportPage() {
   const [priority, setPriority] = useState("Media")
   const [description, setDescription] = useState("")
   const [submittingTicket, setSubmittingTicket] = useState(false)
+
+  // Telegram Settings State
+  const [telegramChannelUrl, setTelegramChannelUrl] = useState("https://t.me/SyncConnectOficial")
+  const [telegramBotUrl, setTelegramBotUrl] = useState("https://t.me/SyncConnectBot")
+  const [telegramInstructionsText, setTelegramInstructionsText] = useState("Unirse al canal informativo para recibir las últimas instrucciones, entrenamientos y avisos de la plataforma.")
+
+  useEffect(() => {
+    if (!db) return
+    getDoc(doc(db, "site_config", "settings")).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        if (data.telegram_channel_url) setTelegramChannelUrl(data.telegram_channel_url)
+        if (data.telegram_bot_url) setTelegramBotUrl(data.telegram_bot_url)
+        if (data.telegram_instructions_text) setTelegramInstructionsText(data.telegram_instructions_text)
+      }
+    }).catch(err => console.warn("Error cargando Telegram settings:", err))
+  }, [db])
 
   // Active Ticket Conversation Explorer
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
@@ -251,7 +268,44 @@ export default function AffiliateSupportPage() {
           </div>
         </div>
 
-        {/* CONTROLS BAR */}
+        {/* BANNER OFICIAL CANAL DE TELEGRAM E INSTRUCCIONES */}
+        <div className="bg-gradient-to-r from-sky-950 via-slate-900 to-slate-950 p-6 md:p-8 rounded-3xl border border-sky-500/30 shadow-2xl space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-2 bg-sky-500/20 text-sky-400 border border-sky-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+                <Send className="h-3.5 w-3.5" /> Canal Oficial e Instrucciones
+              </div>
+              <h3 className="text-xl font-headline font-black text-white uppercase italic">
+                Comunidad Oficial de <span className="text-sky-400">Telegram</span>
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                {telegramInstructionsText || "Únete al canal oficial e interactúa con nuestro Bot de instrucciones para recibir avisos en tiempo real, guías paso a paso y avisos importantes de la plataforma."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <a 
+                href={telegramChannelUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                className="h-12 px-6 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-sky-500/20 active:scale-95 transition-all"
+              >
+                <Send className="h-4 w-4" /> Canal Telegram ↗
+              </a>
+
+              {telegramBotUrl && (
+                <a 
+                  href={telegramBotUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="h-12 px-6 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 border border-white/10 transition-all"
+                >
+                  <Bot className="h-4 w-4 text-sky-400" /> Bot de Instrucciones
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2 border-b border-white/5 pb-4">
           <Button 
             onClick={() => { setActiveSection("ai-chat"); setSelectedTicketId(null); }}

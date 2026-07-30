@@ -17,6 +17,7 @@ import { doc, setDoc, increment, getDoc } from 'firebase/firestore'
 import { cn, getGoogleDriveDirectLink } from '@/lib/utils'
 import { NICA_BANKS } from '@/lib/constants'
 import { getFreeSpotsInfo, consumeFreeSpotIfEligible, FreeSpotInfo } from '@/lib/free-spots'
+import { loginWithGoogle, loginWithFacebook, loginWithTikTok } from '@/lib/social-auth'
 import placeholderData from '@/app/lib/placeholder-images.json'
 
 type Step = 'google' | 'payment'
@@ -108,18 +109,24 @@ function SellerRegisterContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleSocialLogin = async (providerType: 'google' | 'facebook' | 'tiktok') => {
     if (!auth || loading) return;
     setErrorMsg(null);
     setLoading(true);
     
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      if (providerType === 'google') {
+        await loginWithGoogle(auth);
+      } else if (providerType === 'facebook') {
+        await loginWithFacebook(auth);
+      } else {
+        await loginWithTikTok(auth);
+      }
       toast({
-        title: "Google Asociado",
-        description: "Cuenta de Google vinculada correctamente.",
+        title: "Cuenta Vinculada",
+        description: `Autenticación con ${providerType.toUpperCase()} exitosa.`,
       });
+      setStep('payment');
     } catch (error: any) {
       const isPopupClosed = error?.code === 'auth/popup-closed-by-user' || 
                             error?.message?.includes('popup-closed-by-user');
@@ -132,81 +139,56 @@ function SellerRegisterContent() {
         return;
       }
 
-      console.error("Error de login con Google:", error);
-      setErrorMsg("Fallo en la autenticación con Google. Intente con correo electrónico.");
-      setEmailAuthMode('email');
+      console.error(`Error de login con ${providerType}:`, error);
+      setErrorMsg(`Fallo en la autenticación con ${providerType}. Intente con correo u otro proveedor.`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSendEmailOtp = async (e: React.FormEvent) => {
+  const handleGoogleLogin = () => handleSocialLogin('google');
+  const handleFacebookLogin = () => handleSocialLogin('facebook');
+  const handleTikTokLogin = () => handleSocialLogin('tiktok');
+
+  const [emailPasswordInput, setEmailPasswordInput] = useState('')
+
+  const handleDirectEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth || loading) return;
     const cleanEmail = emailInput.trim().toLowerCase();
+    const cleanPass = emailPasswordInput.trim();
+
     if (!cleanEmail || !cleanEmail.includes('@')) {
       setErrorMsg("Por favor, ingrese un correo electrónico válido.");
       return;
     }
-    setErrorMsg(null);
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/send-verification-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, name: formData.firstName || cleanEmail.split('@')[0] })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setEmailOtpSent(true);
-        toast({
-          title: "Código Enviado a Tu Correo 📩",
-          description: `Se ha enviado un código de seguridad de 6 dígitos a ${cleanEmail}. Revisa tu bandeja de entrada o spam.`,
-          duration: 10000,
-        });
-      } else {
-        throw new Error(data.error || "No se pudo enviar el código de verificación.");
-      }
-    } catch (error: any) {
-      console.error("Error sending email OTP:", error);
-      setErrorMsg(error.message || "Ocurrió un error al enviar el código de verificación.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyEmailOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (emailOtpInput.trim() !== emailOtpCode) {
-      setErrorMsg("El código de verificación de correo es incorrecto.");
+    if (!cleanPass || cleanPass.length < 6) {
+      setErrorMsg("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
+
     setErrorMsg(null);
     setLoading(true);
-
-    const emailClean = emailInput.trim().toLowerCase();
-    const tempPassword = `SyncSellerPass2026!_${emailClean.replace(/[^a-zA-Z0-9]/g, '')}`;
 
     try {
       try {
-        await createUserWithEmailAndPassword(auth, emailClean, tempPassword);
+        await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
       } catch (createErr: any) {
         if (createErr.code === 'auth/email-already-in-use') {
-          await signInWithEmailAndPassword(auth, emailClean, tempPassword);
+          await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
         } else {
           throw createErr;
         }
       }
 
       toast({
-        title: "Correo Verificado ✓",
+        title: "Correo Autenticado ✓",
         description: "Acceso validado. Procediendo al registro de Vendedor.",
       });
       setStep('payment');
-    } catch (signUpErr: any) {
-      console.error("Error registering with email OTP:", signUpErr);
-      setErrorMsg("Error al autenticar con el correo. Intente con Google.");
+    } catch (err: any) {
+      console.error("Direct email register error:", err);
+      setErrorMsg("Error al autenticar con este correo. Verifique sus datos o intente con Google.");
     } finally {
       setLoading(false);
     }
@@ -228,13 +210,13 @@ function SellerRegisterContent() {
     const cleanEmail = auth.currentUser.email || '';
 
     try {
-      // Check free spots
+      // Check free spots for seller
       const currentFreeInfo = await getFreeSpotsInfo(db);
-      const isFree = currentFreeInfo.isFreeEligible;
+      const isFree = currentFreeInfo.isSellerFreeEligible;
       
       let wasFreeConsumed = false;
       if (isFree) {
-        wasFreeConsumed = await consumeFreeSpotIfEligible(db, uid, cleanEmail);
+        wasFreeConsumed = await consumeFreeSpotIfEligible(db, uid, cleanEmail, 'seller');
       }
 
       const affRef = doc(db, 'affiliates', uid);
@@ -358,12 +340,12 @@ function SellerRegisterContent() {
               </div>
 
               {emailAuthMode === 'google' ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <Button
                     type="button"
                     onClick={handleGoogleLogin}
                     disabled={loading}
-                    className="w-full h-14 bg-[#131921] hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-3 shadow-lg"
+                    className="w-full h-13 bg-[#131921] hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-3 shadow-lg cursor-pointer"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                       <>
@@ -373,83 +355,94 @@ function SellerRegisterContent() {
                           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                         </svg>
-                        <span>Continuar con Google</span>
+                        <span>Regístrate con Google</span>
                       </>
                     )}
                   </Button>
 
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleFacebookLogin}
+                      disabled={loading}
+                      variant="outline"
+                      className="w-full h-11 border-slate-200 bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] font-black text-[10px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      <span>Facebook</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      onClick={handleTikTokLogin}
+                      disabled={loading}
+                      variant="outline"
+                      className="w-full h-11 border-slate-200 bg-black/5 hover:bg-black/10 text-slate-900 font-black text-[10px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.98-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.82.57-1.31 1.56-1.3 2.56.01.94.5 1.86 1.28 2.37.89.58 2.05.67 3.01.25.95-.41 1.63-1.31 1.81-2.31.12-.82.08-1.66.08-2.49V.02z"/>
+                      </svg>
+                      <span>TikTok</span>
+                    </Button>
+                  </div>
+
                   <div className="relative my-4">
                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
-                    <div className="relative flex justify-center text-[10px] font-black uppercase text-slate-400"><span className="bg-white px-3">O prefieres</span></div>
+                    <div className="relative flex justify-center text-[10px] font-black uppercase text-slate-400"><span className="bg-white px-3">O con tu correo</span></div>
                   </div>
 
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setEmailAuthMode('email')}
-                    className="w-full h-12 rounded-2xl border-slate-200 font-bold text-xs uppercase text-slate-700 hover:bg-slate-50"
+                    className="w-full h-11 rounded-2xl border-slate-200 font-bold text-xs uppercase text-slate-700 hover:bg-slate-50 cursor-pointer"
                   >
                     <Mail className="h-4 w-4 mr-2 text-slate-500" /> Usar Correo Electrónico
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {!emailOtpSent ? (
-                    <form onSubmit={handleSendEmailOtp} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase text-slate-600">Correo Electrónico</Label>
-                        <Input
-                          type="email"
-                          placeholder="vendedor@empresa.com"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          required
-                          className="h-12 rounded-xl bg-slate-50 border-none ring-1 ring-slate-200 font-medium text-xs"
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full h-12 bg-[#ff9900] hover:bg-[#e68a00] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl"
-                      >
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar Código de Verificación"}
-                      </Button>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleVerifyEmailOtp} className="space-y-4">
-                      <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-                        <span>Código enviado a {emailInput}</span>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black uppercase text-slate-600">Ingresa el Código</Label>
-                        <Input
-                          type="text"
-                          placeholder="123456"
-                          value={emailOtpInput}
-                          onChange={(e) => setEmailOtpInput(e.target.value)}
-                          maxLength={6}
-                          required
-                          className="h-12 text-center font-mono text-lg tracking-widest rounded-xl bg-slate-50 border-none ring-1 ring-slate-200 font-bold"
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full h-12 bg-[#131921] text-white font-black text-xs uppercase tracking-wider rounded-xl"
-                      >
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verificar y Continuar"}
-                      </Button>
-                    </form>
-                  )}
-
-                  <button
+                  <form onSubmit={handleDirectEmailRegister} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-black uppercase text-slate-600">Correo Electrónico</Label>
+                      <Input
+                        type="email"
+                        placeholder="vendedor@empresa.com"
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        required
+                        className="h-12 rounded-xl bg-slate-50 border-none ring-1 ring-slate-200 font-medium text-xs"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-black uppercase text-slate-600">Contraseña</Label>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        value={emailPasswordInput}
+                        onChange={(e) => setEmailPasswordInput(e.target.value)}
+                        required
+                        className="h-12 rounded-xl bg-slate-50 border-none ring-1 ring-slate-200 font-medium text-xs"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full h-12 bg-[#ff9900] hover:bg-[#e68a00] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer"
+                    >
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continuar Registro con Correo"}
+                    </Button>
+                  </form>
+                  <Button
                     type="button"
-                    onClick={() => { setEmailAuthMode('google'); setEmailOtpSent(false); }}
-                    className="text-[10px] font-black uppercase text-slate-400 hover:text-slate-700 w-full text-center"
+                    variant="ghost"
+                    onClick={() => setEmailAuthMode('google')}
+                    className="w-full text-xs text-slate-500 font-bold uppercase"
                   >
-                    ← Volver a inicio con Google
-                  </button>
+                    ← Volver a Redes Sociales
+                  </Button>
                 </div>
               )}
             </div>

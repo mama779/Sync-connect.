@@ -256,6 +256,9 @@ export default function AIPageGeneratorPage() {
     try {
       const selectedProdsData = availableProducts.filter(p => selectedProductIds.includes(p.id))
       const targetProduct = selectedProdsData[0] || availableProducts[0]
+      const targetImages = targetProduct?.images && targetProduct.images.length > 0
+        ? targetProduct.images
+        : (targetProduct?.imageUrl ? [targetProduct.imageUrl] : (targetProduct?.image ? [targetProduct.image] : ['https://picsum.photos/seed/sync-store/800/450']))
 
       const pagePayload = {
         userId: user.uid,
@@ -267,7 +270,7 @@ export default function AIPageGeneratorPage() {
         domainStatus: customDomain ? 'pending_dns' : 'active',
         selectedProductIds,
         selectedProductsData: selectedProdsData,
-        affiliateLink: `/checkout?ref=${user.uid}&prod=${targetProduct?.id || ''}`,
+        affiliateLink: `/checkout/${targetProduct?.id || ''}?ref=${user.uid}`,
         theme: {
           preset: 'emerald',
           primaryColor: '#059669',
@@ -302,7 +305,8 @@ export default function AIPageGeneratorPage() {
               ctaText: generatedPage?.ctaText || '¡OBTENER ACCESO CON DESCUENTO!',
               ctaUrl: '#',
               badgeText: '🔥 Oferta Limitada',
-              imageUrl: targetProduct?.image || 'https://picsum.photos/seed/sync-store/800/450'
+              imageUrl: targetImages[0],
+              images: targetImages
             }
           },
           {
@@ -538,9 +542,12 @@ export default function AIPageGeneratorPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 max-h-[320px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 gap-3 max-h-[360px] overflow-y-auto pr-1">
                   {availableProducts.map((product) => {
                     const isSelected = selectedProductIds.includes(product.id)
+                    const productImages = product.images && product.images.length > 0 
+                      ? product.images 
+                      : (product.imageUrl ? [product.imageUrl] : (product.image ? [product.image] : ['https://picsum.photos/200/200']))
 
                     return (
                       <div 
@@ -552,34 +559,55 @@ export default function AIPageGeneratorPage() {
                             handleToggleProductSelection(product.id)
                           }
                         }}
-                        className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                        className={`p-3.5 rounded-2xl border flex flex-col gap-3 cursor-pointer transition-all ${
                           isSelected 
                             ? 'bg-slate-900 border-[#FF5500] shadow-md' 
-                            : 'bg-slate-950 border-white/5 opacity-70 hover:opacity-100'
+                            : 'bg-slate-950 border-white/5 opacity-75 hover:opacity-100'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-800 shrink-0">
-                            <img src={product.image || 'https://picsum.photos/200/200'} alt={product.name} className="object-cover w-full h-full" />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-800 shrink-0 border border-white/10">
+                              <img src={productImages[0]} alt={product.name} className="object-cover w-full h-full" />
+                            </div>
+                            <div>
+                              <h5 className="font-bold text-xs text-white line-clamp-1">{product.name}</h5>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[11px] text-amber-400 font-mono font-bold">${product.price} USD</span>
+                                {product.category && (
+                                  <Badge className="bg-white/10 text-[9px] text-slate-300 border-none">{product.category}</Badge>
+                                )}
+                                {productImages.length > 1 && (
+                                  <Badge className="bg-[#FF5500]/20 text-[#FF5500] text-[9px] font-bold border-[#FF5500]/30">
+                                    📸 {productImages.length} fotos
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <h5 className="font-bold text-xs text-white line-clamp-1">{product.name}</h5>
-                            <span className="text-[11px] text-amber-400 font-mono font-bold">${product.price} USD</span>
-                            {product.category && (
-                              <Badge className="ml-2 bg-white/10 text-[9px] text-slate-300 border-none">{product.category}</Badge>
+
+                          <div className="shrink-0">
+                            {isSelected ? (
+                              <div className="h-6 w-6 rounded-full bg-[#FF5500] flex items-center justify-center text-white">
+                                <Check className="h-3.5 w-3.5 stroke-[3]" />
+                              </div>
+                            ) : (
+                              <div className="h-6 w-6 rounded-full border border-white/20" />
                             )}
                           </div>
                         </div>
 
-                        <div className="shrink-0">
-                          {isSelected ? (
-                            <div className="h-6 w-6 rounded-full bg-[#FF5500] flex items-center justify-center text-white">
-                              <Check className="h-3.5 w-3.5 stroke-[3]" />
-                            </div>
-                          ) : (
-                            <div className="h-6 w-6 rounded-full border border-white/20" />
-                          )}
-                        </div>
+                        {/* Tira de fotos subidas del producto */}
+                        {productImages.length > 0 && (
+                          <div className="pt-2 border-t border-white/5 flex items-center gap-2 overflow-x-auto scrollbar-none">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase shrink-0 mr-1">Fotos:</span>
+                            {productImages.map((img: string, idx: number) => (
+                              <div key={idx} className="relative h-9 w-9 rounded-lg overflow-hidden shrink-0 border border-white/20 bg-slate-800 hover:scale-105 transition-transform">
+                                <img src={img} alt={`Foto ${idx + 1}`} className="object-cover w-full h-full" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -843,18 +871,49 @@ export default function AIPageGeneratorPage() {
                         Productos en esta Oferta ({selectedProductIds.length})
                       </span>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 gap-4">
                         {availableProducts
                           .filter(p => selectedProductIds.includes(p.id))
-                          .map((prod) => (
-                            <div key={prod.id} className="p-3 bg-slate-900 rounded-xl border border-white/10 flex items-center gap-3">
-                              <img src={prod.image} alt={prod.name} className="h-10 w-10 rounded-lg object-cover" />
-                              <div className="min-w-0 flex-1">
-                                <h6 className="text-xs font-bold text-white truncate">{prod.name}</h6>
-                                <span className="text-[11px] text-emerald-400 font-bold">${prod.price} USD</span>
+                          .map((prod) => {
+                            const pImgs = prod.images && prod.images.length > 0
+                              ? prod.images
+                              : (prod.imageUrl ? [prod.imageUrl] : (prod.image ? [prod.image] : ['https://picsum.photos/200/200']))
+
+                            return (
+                              <div key={prod.id} className="p-4 bg-slate-900 rounded-2xl border border-white/10 space-y-3">
+                                <div className="flex items-center gap-3">
+                                  <img src={pImgs[0]} alt={prod.name} className="h-12 w-12 rounded-xl object-cover shrink-0 border border-white/10" />
+                                  <div className="min-w-0 flex-1">
+                                    <h6 className="text-xs font-bold text-white truncate">{prod.name}</h6>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-xs text-emerald-400 font-extrabold font-mono">${prod.price} USD</span>
+                                      {pImgs.length > 1 && (
+                                        <Badge className="bg-[#FF5500]/20 text-[#FF5500] text-[9px] font-black border-[#FF5500]/30">
+                                          {pImgs.length} Fotos Incluidas
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Mostrar la Galería de Fotos del Producto */}
+                                {pImgs.length > 1 && (
+                                  <div className="pt-2 border-t border-white/5 space-y-1.5">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase block">
+                                      Galería de Fotos ({pImgs.length} Fotos Subidas):
+                                    </span>
+                                    <div className="flex gap-2 overflow-x-auto scrollbar-none py-1">
+                                      {pImgs.map((img: string, idx: number) => (
+                                        <div key={idx} className="relative h-12 w-12 rounded-lg overflow-hidden border border-white/20 shrink-0 bg-slate-950">
+                                          <img src={img} alt={`Vista ${idx+1}`} className="object-cover w-full h-full" />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                       </div>
                     </div>
 
