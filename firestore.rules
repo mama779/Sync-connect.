@@ -1,0 +1,222 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Catch-All Deny-by-default net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // STANDALONE SECURE AUTHENTICATION AND ROLE HELPERS
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email.lower() == "affiliatesync0@gmail.com" ||
+        request.auth.token.email.lower() == "urielroques604@gmail.com" ||
+        request.auth.token.email.lower() == "roquescarlos143@gmail.com"
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 1. SITE CONFIGURATION RULES
+    match /site_config/{configId} {
+      allow read, write: if true; // Everyone can read & sync configuration & statuses
+    }
+
+    // 2. AFFILIATES RULES
+    match /affiliates/{affiliateId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 3. BUYERS RULES
+    match /buyers/{buyerId} {
+      allow read, write: if isSignedIn();
+      
+      match /location_history/{historyId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    // 4. PRODUCTS RULES
+    match /products/{productId} {
+      allow read: if true; // Products must be read for registration/checkout
+      allow write: if isSignedIn();
+    }
+
+    // 5. SALES RULES
+    match /sales/{saleId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 6. ACADEMY MODULES & LESSONS RULES
+    match /academy_modules/{moduleId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /academy_lessons/{lessonId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 7. ACADEMY COMMENTS RULES
+    match /academy_comments/{commentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 8. LIVE CHAT MESSAGES RULES
+    match /live_chat_messages/{messageId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 9. ACADEMY QUESTIONS RULES
+    match /academy_questions/{questionId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 10. NOTIFICATIONS RULES
+    match /notifications/{notificationId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 11. APP RELEASES RULES
+    match /app_releases/{releaseId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // 12. AFFILIATE PROGRESS RULES
+    match /affiliate_progress/{affiliateId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 13. USER SITES & AFFILIATE PAGES RULES
+    match /user_sites/{siteId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /affiliate_pages/{pageId} {
+      allow read: if true; // Public access for landing pages and subdomains
+      allow write: if isSignedIn();
+    }
+
+    match /page_leads/{leadId} {
+      allow read: if isSignedIn(); // Affiliates reading their leads
+      allow write: if true; // Public visitors submitting lead capture forms
+    }
+
+    // 14. MEETINGS LOGS & CHATS RULES
+    match /meetings_logs/{logId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /meetings_chats/{meetingId} {
+      allow read, write: if isSignedIn();
+      
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    // 15. SUPPORT TICKETS RULES
+    match /tickets/{ticketId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 16. WEBRTC LIVE SESSIONS SIGNALING
+    match /live_sessions_signaling/{studentUserId} {
+      allow read, write: if isSignedIn();
+      
+      match /studentCandidates/{candId} {
+        allow read, write: if isSignedIn();
+      }
+      
+      match /hostCandidates/{candId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    // 17. WEBRTC MEETING SIGNALING
+    match /meetings_signaling/{meetingId} {
+      allow read, write: if isSignedIn();
+      
+      match /calls/{callId} {
+        allow read, write: if isSignedIn();
+        
+        match /callerCandidates/{candId} {
+          allow read, write: if isSignedIn();
+        }
+        match /receiverCandidates/{candId} {
+          allow read, write: if isSignedIn();
+        }
+      }
+    }
+
+    // 18. SCHEDULED MEETINGS RULES
+    match /scheduled_meetings/{meetingId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 19. CLASSES RECORDINGS RULES
+    match /classes_recordings/{recordingId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 20. WHATSAPP LOGS, CHATS & MESSAGES RULES
+    match /whatsapp_chats/{chatId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_messages/{messageId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_templates/{templateId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_copilot_config/{configId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_contacts/{contactId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_campaigns/{campaignId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_automations/{automationId} {
+      allow read, write: if true;
+    }
+
+    match /whatsapp_official_conversations/{logId} {
+      allow read, write: if true;
+    }
+
+    // 21. SELLERS RULES
+    match /sellers/{sellerId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "SyncConnect",
+  "description": "Ecosistema global de productos digitales, mercado de afiliados, cursos online y automatización con IA de SyncConnect.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "display-capture",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

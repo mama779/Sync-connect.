@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 13%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 13%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 10 100% 60%; /* Hotmart Coral/Orange #FF5533 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 10 100% 60%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { 
+    @apply bg-[#0b132b] text-foreground font-body antialiased;
+    background-image: 
+      radial-gradient(circle at 50% -20%, #1c2541 0%, transparent 60%),
+      radial-gradient(circle at 0% 0%, #0b132b 0%, transparent 35%);
+    background-attachment: fixed;
+  }
+}
+
+.glass-panel {
+  @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
+}
+
+.hotmart-orange-shadow {
+  box-shadow: 0 0 25px rgba(255, 85, 51, 0.3);
+}
+
+.hotmart-gradient-bg {
+  background: linear-gradient(135deg, #FF3B00 0%, #FF5533 50%, #FF8800 100%);
+}
+
+.high-tech-input {
+  @apply bg-black/40 border-white/10 focus:border-[#FF5533]/50 focus:ring-[#FF5533]/20 rounded-lg text-white font-mono;
+}
+
+.hotmart-btn-primary {
+  @apply bg-[#FF5533] hover:bg-[#E04422] text-white font-bold text-xs uppercase tracking-wider transition-all active:scale-95 shadow-[0_4px_20px_rgba(255,85,51,0.35)];
+}
+
+nextjs-portal, [data-nextjs-portal], [data-nextjs-toast], .__next-error-overlay-root, #nextjs-error-overlay {
+  display: none !important;
+}
+
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 300 700;
+  font-display: swap;
+  font-style: normal;
+  src: url('https://fonts.gstatic.com/s/spacegrotesk/v15/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj7oUXskPMBBSSJLm2E.woff2') format('woff2');
+}

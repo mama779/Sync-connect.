@@ -1,0 +1,406 @@
+
+{
+  "entities": {
+    "Bank": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Bank",
+      "type": "object",
+      "description": "Represents a bank operating in Nicaragua, used for affiliate payouts and product payment destinations.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Bank entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official name of the bank (e.g., Banco LAFISE Bancentro, BANPRO)."
+        },
+        "code": {
+          "type": "string",
+          "description": "A short code or acronym for the bank, often used for internal identification or quick reference."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Affiliate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Affiliate",
+      "type": "object",
+      "description": "Represents an individual registered as an affiliate to sell products and earn commissions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Affiliate entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the affiliate."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the affiliate."
+        },
+        "email": {
+          "type": "string",
+          "description": "The primary email address of the affiliate.",
+          "format": "email"
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "Optional URL for the affiliate's profile picture."
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "description": "The WhatsApp number used for bot interactions and sales."
+        },
+        "botEnabled": {
+          "type": "boolean",
+          "description": "Whether the automated sales bot is active for this affiliate."
+        },
+        "botWelcomeMessage": {
+          "type": "string",
+          "description": "Customized message the bot sends to potential buyers."
+        },
+        "bankAccountNumber": {
+          "type": "string",
+          "description": "The bank account number for the affiliate's commission payouts."
+        },
+        "bankId": {
+          "type": "string",
+          "description": "Reference to the Bank entity."
+        },
+        "bankAccountHolderName": {
+          "type": "string",
+          "description": "The name of the account holder for the affiliate's bank account."
+        },
+        "currentBalance": {
+          "type": "number",
+          "description": "The current accumulated commission balance.",
+          "format": "float"
+        },
+        "registeredAt": {
+          "type": "string",
+          "description": "The timestamp when the affiliate registered.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status (Active, Blocked, etc.)"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "bankAccountNumber",
+        "bankId",
+        "bankAccountHolderName",
+        "currentBalance",
+        "registeredAt"
+      ]
+    },
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a digital product, service, or infoproduct.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Product entity."
+        },
+        "code": {
+          "type": "string",
+          "description": "Unique alphanumeric code for identification."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the product or service."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the product."
+        },
+        "price": {
+          "type": "number",
+          "description": "The sale price.",
+          "format": "float"
+        },
+        "commissionRate": {
+          "type": "number",
+          "description": "The commission percentage.",
+          "format": "float"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL for the product image."
+        },
+        "payoutBankAccountNumber": {
+          "type": "string",
+          "description": "Bank account to receive payments."
+        },
+        "payoutBankId": {
+          "type": "string",
+          "description": "Reference to the Bank entity."
+        },
+        "payoutBankAccountHolderName": {
+          "type": "string",
+          "description": "Name of the account holder for product payouts."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "name",
+        "description",
+        "price",
+        "commissionRate",
+        "payoutBankAccountNumber",
+        "payoutBankId",
+        "payoutBankAccountHolderName",
+        "createdAt"
+      ]
+    },
+    "Buyer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Buyer",
+      "type": "object",
+      "description": "Represents a customer who has purchased a product.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier (email)."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address.",
+          "format": "email"
+        },
+        "referredBy": {
+          "type": "string",
+          "description": "The ID of the affiliate who invited this buyer."
+        },
+        "registeredAt": {
+          "type": "string",
+          "description": "Recording timestamp.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "registeredAt"
+      ]
+    },
+    "Sale": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sale",
+      "type": "object",
+      "description": "Records a single sales transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier."
+        },
+        "affiliateId": {
+          "type": "string",
+          "description": "Reference to the Affiliate."
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to the Product."
+        },
+        "buyerId": {
+          "type": "string",
+          "description": "Reference to the Buyer."
+        },
+        "saleDate": {
+          "type": "string",
+          "description": "Recording date.",
+          "format": "date-time"
+        },
+        "saleAmount": {
+          "type": "number",
+          "description": "Total amount.",
+          "format": "float"
+        },
+        "commissionEarned": {
+          "type": "number",
+          "description": "Commission amount.",
+          "format": "float"
+        },
+        "productPayoutAmount": {
+          "type": "number",
+          "description": "Amount for product owner.",
+          "format": "float"
+        },
+        "voucherReference": {
+          "type": "string",
+          "description": "Reference from bank voucher."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status (completed, pending, etc.)"
+        }
+      },
+      "required": [
+        "id",
+        "affiliateId",
+        "productId",
+        "buyerId",
+        "saleDate",
+        "saleAmount",
+        "commissionEarned",
+        "productPayoutAmount",
+        "status"
+      ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "System messages sent to users.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "Target user ID (affiliate or buyer)" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["welcome", "sale", "system"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isRead": { "type": "boolean" }
+      }
+    },
+    "SiteConfig": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SiteConfig",
+      "type": "object",
+      "description": "Global application settings.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The identifier for the setting."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "The URL of the image."
+        },
+        "imageHint": {
+          "type": "string",
+          "description": "Keywords for AI searching."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description."
+        },
+        "value": {
+          "type": "string",
+          "description": "String value for configuration (e.g., URL, number)."
+        }
+      }
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/banks/{bankId}",
+        "definition": {
+          "entityName": "Bank",
+          "schema": {
+            "$ref": "#/backend/entities/Bank"
+          },
+          "description": "Stores reference data for banks."
+        }
+      },
+      {
+        "path": "/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "The catalog of products."
+        }
+      },
+      {
+        "path": "/affiliates/{affiliateId}",
+        "definition": {
+          "entityName": "Affiliate",
+          "schema": {
+            "$ref": "#/backend/entities/Affiliate"
+          },
+          "description": "Profiles of registered affiliates."
+        }
+      },
+      {
+        "path": "/buyers/{buyerId}",
+        "definition": {
+          "entityName": "Buyer",
+          "schema": {
+            "$ref": "#/backend/entities/Buyer"
+          },
+          "description": "Records of customers."
+        }
+      },
+      {
+        "path": "/sales/{saleId}",
+        "definition": {
+          "entityName": "Sale",
+          "schema": {
+            "$ref": "#/backend/entities/Sale"
+          },
+          "description": "Individual sales transactions."
+        }
+      },
+      {
+        "path": "/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "System notifications for users."
+        }
+      },
+      {
+        "path": "/site_config/{configId}",
+        "definition": {
+          "entityName": "SiteConfig",
+          "schema": {
+            "$ref": "#/backend/entities/SiteConfig"
+          },
+          "description": "Global site configurations."
+        }
+      }
+    ]
+  }
+}

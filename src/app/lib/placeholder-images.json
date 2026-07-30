@@ -1,0 +1,35 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "site-logo",
+      "description": "Logotipo oficial de Sync Connect - Flama Corporativa",
+      "imageUrl": "/logo.svg",
+      "imageHint": "corporate flame logo"
+    },
+    {
+      "id": "hero-marketing",
+      "description": "Imagen Principal (Hero) - Portada de la página de inicio",
+      "imageUrl": "https://picsum.photos/seed/sync_network_hero/1200/800",
+      "imageHint": "digital entrepreneur"
+    },
+    {
+      "id": "feature-1",
+      "description": "Icono/Imagen: Mercado Global (Sección características)",
+      "imageUrl": "https://picsum.photos/seed/global/400/400",
+      "imageHint": "world network"
+    },
+    {
+      "id": "feature-2",
+      "description": "Icono/Imagen: Analíticas Reales (Sección características)",
+      "imageUrl": "https://picsum.photos/seed/stats/400/400",
+      "imageHint": "growth statistics"
+    },
+    {
+      "id": "feature-3",
+      "description": "Icono/Imagen: Soporte VIP (Sección características)",
+      "imageUrl": "https://picsum.photos/seed/support/400/400",
+      "imageHint": "client success"
+    }
+  ]
+}

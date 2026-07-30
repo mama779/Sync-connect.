@@ -1,0 +1,243 @@
+{
+  "entities": {
+    "Affiliate": {
+      "title": "Affiliate Profile",
+      "description": "User profile for an affiliate partner",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Active", "Suspended"] },
+        "createdAt": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Seller": {
+      "title": "Seller Profile",
+      "description": "User profile for a digital product vendor/seller",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "brandName": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Active", "Suspended"] },
+        "registeredAt": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Buyer": {
+      "title": "Buyer Profile",
+      "description": "User profile for a product buyer/customer",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product that can be sold by affiliates",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "commission": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "price"]
+    },
+    "Sale": {
+      "title": "Sale Record",
+      "description": "A purchase record of a product",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "affiliateId": { "type": "string" },
+        "price": { "type": "number" },
+        "commission": { "type": "number" },
+        "status": { "type": "string" },
+        "saleDate": { "type": "string" }
+      },
+      "required": ["productId", "buyerId", "price"]
+    },
+    "AcademyModule": {
+      "title": "Academy Module",
+      "description": "A module containing several educational lessons",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "order": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["title", "order"]
+    },
+    "AcademyLesson": {
+      "title": "Academy Lesson",
+      "description": "An educational video lesson in the academy",
+      "type": "object",
+      "properties": {
+        "moduleId": { "type": "string" },
+        "title": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["moduleId", "title", "videoUrl", "order"]
+    },
+    "AcademyComment": {
+      "title": "Academy Comment",
+      "description": "A comment or question on an academy lesson",
+      "type": "object",
+      "properties": {
+        "lessonId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["lessonId", "userId", "userName", "text", "createdAt"]
+    },
+    "LiveChatMessage": {
+      "title": "Live Chat Message",
+      "description": "Real-time message in the webinar/live stream chat",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "userName", "text", "createdAt"]
+    },
+    "ScheduledMeeting": {
+      "title": "Scheduled Meeting",
+      "description": "A scheduled videoconferencing session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "scheduledAt": { "type": "string" },
+        "duration": { "type": "number" },
+        "status": { "type": "string", "enum": ["Scheduled", "Active", "Ended"] },
+        "instructorName": { "type": "string" },
+        "instructorId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "attendance": { "type": "array" }
+      },
+      "required": ["id", "title", "scheduledAt", "status", "instructorName", "instructorId", "createdAt"]
+    },
+    "Ticket": {
+      "title": "Support Ticket",
+      "description": "A support ticket created by a student for academic, technical or billing issues",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "subject": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "messages": {
+          "type": "array"
+        }
+      },
+      "required": ["userId", "subject", "category", "priority", "status", "createdAt"]
+    },
+    "ClassRecording": {
+      "title": "Class Recording",
+      "description": "A recorded live class session available for playback",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "meetingId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "recordedAt": { "type": "string" },
+        "duration": { "type": "number" },
+        "recordingUrl": { "type": "string" },
+        "instructorName": { "type": "string" }
+      },
+      "required": ["id", "meetingId", "title", "recordedAt", "recordingUrl", "instructorName"]
+    },
+    "WhatsAppOfficialLog": {
+      "title": "WhatsApp Official Log",
+      "description": "Logs of conversations received and sent via Meta WhatsApp Cloud API",
+      "type": "object",
+      "properties": {
+        "fromNumber": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "aiReply": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["fromNumber", "text", "status"]
+    }
+  },
+  "firestore": {
+    "/tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "Academic and platform support tickets"
+    },
+    "/classes_recordings/{recordingId}": {
+      "schema": "ClassRecording",
+      "description": "Recorded live classes for offline/asynchronous playback"
+    },
+    "/affiliates/{affiliateId}": {
+      "schema": "Affiliate",
+      "description": "Affiliates master profiles"
+    },
+    "/buyers/{buyerId}": {
+      "schema": "Buyer",
+      "description": "Product buyers profiles"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Digital products catalog"
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Transactions registered"
+    },
+    "/academy_modules/{moduleId}": {
+      "schema": "AcademyModule",
+      "description": "Course modules"
+    },
+    "/academy_lessons/{lessonId}": {
+      "schema": "AcademyLesson",
+      "description": "Course individual video lessons"
+    },
+    "/academy_comments/{commentId}": {
+      "schema": "AcademyComment",
+      "description": "Comments and questions posted by students"
+    },
+    "/live_chat_messages/{messageId}": {
+      "schema": "LiveChatMessage",
+      "description": "Live webinar chat messages"
+    },
+    "/scheduled_meetings/{meetingId}": {
+      "schema": "ScheduledMeeting",
+      "description": "Scheduled videoconferences and webinars"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  openwa-whatsapp:
+    build: .
+    container_name: openwa_whatsapp_service
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - OPENWA_API_SECRET=sync_connect_openwa_secret_2026
+      - NEXT_WEBHOOK_URL=https://tu-dominio-nextjs.com/api/whatsapp/openwa/webhook
+      - SESSION_NAME=sync_connect_openwa_session
+    volumes:
+      - ./sessions:/app/sync_connect_openwa_session
