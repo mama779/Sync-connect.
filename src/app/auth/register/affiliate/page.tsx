@@ -480,16 +480,29 @@ function AffiliateRegisterContent() {
                     🎁 GRATIS ($0 USD)
                   </span>
                 ) : (
-                  <span className="bg-slate-800 text-slate-200 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase">
-                    $6 USD
-                  </span>
+                  <div className="text-right">
+                    <span className="bg-slate-900 text-amber-400 font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider inline-block shadow-sm">
+                      $6 USD
+                    </span>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">Tarifa de Activación (Dólares)</p>
+                  </div>
                 )}
               </div>
 
-              {freeSpots.isFreeEligible && (
+              {freeSpots.isFreeEligible ? (
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 font-medium flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span>🎉 <strong>¡Invitación Gratuita Activa!</strong> Tu activación de afiliado es totalmente <strong>GRATIS ($0 USD)</strong>. No tendrás que realizar ningún pago.</span>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                    <Banknote className="h-4 w-4 text-amber-600 shrink-0" />
+                    Activación de Afiliado: $6 USD (Dólares)
+                  </p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    La tarifa única de activación para socio afiliado es de <strong>$6 USD (Seis Dólares)</strong>. Al transferir mediante banco local, el monto se calcula en Dólares USD o su equivalente al tipo de cambio oficial del banco.
+                  </p>
                 </div>
               )}
 

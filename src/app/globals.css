@@ -36,6 +36,11 @@
       radial-gradient(circle at 0% 0%, #0b132b 0%, transparent 35%);
     background-attachment: fixed;
   }
+  input:not([type="checkbox"]):not([type="radio"]):not(.text-white):not(.text-slate-100),
+  textarea:not(.text-white):not(.text-slate-100),
+  select:not(.text-white):not(.text-slate-100) {
+    color: #0f172a;
+  }
 }
 
 .glass-panel {

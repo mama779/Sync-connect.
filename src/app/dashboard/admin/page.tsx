@@ -68,8 +68,12 @@ export default function AdminDashboard() {
   // Estados para Conexión Telegram Informativo e Instrucciones
   const [telegramChannelUrl, setTelegramChannelUrl] = useState('https://t.me/SyncConnectOficial');
   const [telegramBotUrl, setTelegramBotUrl] = useState('https://t.me/SyncConnectBot');
+  const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [showTelegramBotToken, setShowTelegramBotToken] = useState(false);
+  const [telegramWebhookStatus, setTelegramWebhookStatus] = useState('');
   const [telegramInstructionsText, setTelegramInstructionsText] = useState('¡Bienvenido al Canal Oficial de Telegram! Aquí recibirás todas las instrucciones sobre el uso de la plataforma, estrategias de ventas, nuevos infoproductos en catálogo y comunicados en vivo.');
   const [isSavingTelegram, setIsSavingTelegram] = useState(false);
+  const [isConnectingBot, setIsConnectingBot] = useState(false);
 
   // Estados para Invitaciones Gratuitas y Tarifas
   const [freeInvitationsEnabled, setFreeInvitationsEnabled] = useState(true);
@@ -122,6 +126,8 @@ export default function AdminDashboard() {
         if (data.smtp_from_name) setSmtpFromName(data.smtp_from_name);
         if (data.telegram_channel_url) setTelegramChannelUrl(data.telegram_channel_url);
         if (data.telegram_bot_url) setTelegramBotUrl(data.telegram_bot_url);
+        if (data.telegram_bot_token) setTelegramBotToken(data.telegram_bot_token);
+        if (data.telegram_webhook_url) setTelegramWebhookStatus(data.telegram_webhook_url);
         if (data.telegram_instructions_text) setTelegramInstructionsText(data.telegram_instructions_text);
       } else {
         setTestEmailRecipient('affiliatesync0@gmail.com');
@@ -241,13 +247,14 @@ export default function AdminDashboard() {
       await setDoc(doc(db, 'site_config', 'settings'), {
         telegram_channel_url: telegramChannelUrl.trim(),
         telegram_bot_url: telegramBotUrl.trim(),
+        telegram_bot_token: telegramBotToken.trim(),
         telegram_instructions_text: telegramInstructionsText.trim(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
       toast({ 
         title: "Canal e Instrucciones de Telegram Guardados ✓", 
-        description: "Los enlaces y mensajes de Telegram ahora están disponibles para los usuarios y afiliados." 
+        description: "Los enlaces, token y mensajes de Telegram se actualizaron con éxito." 
       });
     } catch (err: any) {
       toast({ 
@@ -257,6 +264,48 @@ export default function AdminDashboard() {
       });
     } finally {
       setIsSavingTelegram(false);
+    }
+  };
+
+  const handleConnectTelegramBot = async () => {
+    if (!telegramBotToken.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Token de Telegram Requerido",
+        description: "Ingresa el Token de tu Bot de Telegram (obtenido desde @BotFather)."
+      });
+      return;
+    }
+    setIsConnectingBot(true);
+    try {
+      const res = await fetch('/api/telegram/set-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botToken: telegramBotToken.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.botUsername) setTelegramBotUrl(data.botUsername);
+        if (data.webhookUrl) setTelegramWebhookStatus(data.webhookUrl);
+        toast({
+          title: "¡Bot de Telegram Conectado y Listo! 🤖",
+          description: "Webhook vinculado. Tu Bot responderá dudas automáticamente con la IA de SyncConnect."
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error de Validación de Telegram",
+          description: data.error || "El token de Telegram no fue aceptado. Verifica en @BotFather."
+        });
+      }
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Error de Conexión",
+        description: err?.message || "No se pudo conectar con los servidores de Telegram."
+      });
+    } finally {
+      setIsConnectingBot(false);
     }
   };
 
@@ -1105,22 +1154,77 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* PANEL DE CONFIGURACIÓN TELEGRAM INFORMATIVO E INSTRUCCIONES */}
-        <Card className="premium-card border-sky-500/20 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white">
-          <CardHeader className="border-b border-white/10 p-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* PANEL DE CONFIGURACIÓN TELEGRAM INFORMATIVO Y BOT IA DE RESPUESTAS */}
+        <Card className="premium-card border-sky-500/30 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white shadow-2xl">
+          <CardHeader className="border-b border-white/10 p-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <CardTitle className="text-xl font-headline font-black uppercase italic text-white flex items-center gap-3">
-                <Send className="h-6 w-6 text-sky-400" /> Canal e Instrucciones de <span className="text-sky-400">Telegram</span>
+                <Send className="h-6 w-6 text-sky-400" /> Bot IA de Respuestas y Canal de <span className="text-sky-400">Telegram</span>
               </CardTitle>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Conecta tu canal oficial y grupo de soporte para enviar comunicados, guías e instrucciones a los usuarios
+              <p className="text-[11px] font-medium text-slate-300">
+                Conecta la API Key / Token de tu Bot de Telegram para responder preguntas de los usuarios automáticamente con IA
               </p>
             </div>
-            <Badge variant="outline" className="rounded-xl border-sky-500/30 text-sky-300 bg-sky-500/10 font-black text-[10px] tracking-wider uppercase h-8 px-4 flex items-center gap-2">
-              <Send className="h-3.5 w-3.5 text-sky-400" /> Telegram Conectado
+            <Badge variant="outline" className="rounded-xl border-sky-500/40 text-sky-300 bg-sky-500/10 font-black text-[10px] tracking-wider uppercase h-8 px-4 flex items-center gap-2 shrink-0">
+              <Send className="h-3.5 w-3.5 text-sky-400 animate-pulse" /> {telegramBotToken ? "Token Configurado" : "Sin Conectar"}
             </Badge>
           </CardHeader>
-          <CardContent className="p-10 space-y-8">
+          <CardContent className="p-8 space-y-8">
+            {/* SECCIÓN API KEY / TOKEN DEL BOT DE TELEGRAM */}
+            <div className="p-5 bg-sky-950/40 border border-sky-500/30 rounded-2xl space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="text-sm font-black uppercase text-sky-300 flex items-center gap-2">
+                    <Key className="h-4 w-4 text-sky-400" /> Token de la API de Telegram (BotFather)
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-1">
+                    Obtén tu token gratis en Telegram buscando a <strong>@BotFather</strong>, creando un nuevo bot con <code className="bg-slate-800 px-1.5 py-0.5 rounded text-sky-300">/newbot</code> y pegando la clave aquí:
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Input 
+                    type={showTelegramBotToken ? "text" : "password"}
+                    value={telegramBotToken}
+                    onChange={(e) => setTelegramBotToken(e.target.value)}
+                    placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz..."
+                    className="h-12 font-mono text-xs font-bold rounded-xl bg-slate-950 text-white border-white/20 pr-10 focus:border-sky-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTelegramBotToken(!showTelegramBotToken)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                  >
+                    {showTelegramBotToken ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleConnectTelegramBot}
+                  disabled={isConnectingBot || !telegramBotToken}
+                  className="h-12 bg-sky-500 hover:bg-sky-600 text-slate-950 font-black text-xs uppercase px-6 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 shrink-0"
+                >
+                  {isConnectingBot ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4" /> Conectar Bot IA
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {telegramWebhookStatus && (
+                <div className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-lg flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>Webhook de respuestas automáticas activo: <strong className="text-white">{telegramWebhookStatus}</strong></span>
+                </div>
+              )}
+            </div>
+
             <form onSubmit={handleSaveTelegram} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
@@ -1136,29 +1240,29 @@ export default function AdminDashboard() {
                     required
                     className="h-12 font-mono text-xs font-bold rounded-xl bg-slate-950/80 text-white border-white/10 focus:border-sky-400"
                   />
-                  <p className="text-[10px] text-slate-400">Enlace donde los usuarios se unirán para recibir anuncios e instructivos.</p>
+                  <p className="text-[10px] text-slate-400">Enlace del canal oficial donde se comparten ofertas e instrucciones.</p>
                 </div>
 
                 {/* Bot / Grupo de Soporte en Telegram */}
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-300 flex items-center gap-2">
-                    <Send className="h-3.5 w-3.5 text-sky-400" /> Bot o Grupo de Instrucciones / Soporte
+                    <Send className="h-3.5 w-3.5 text-sky-400" /> Enlace Directo al Bot de Telegram
                   </Label>
                   <Input 
                     value={telegramBotUrl}
                     onChange={(e) => setTelegramBotUrl(e.target.value)}
-                    placeholder="https://t.me/TuBotInstruccionesBot"
+                    placeholder="https://t.me/TuBotOficialBot"
                     required
                     className="h-12 font-mono text-xs font-bold rounded-xl bg-slate-950/80 text-white border-white/10 focus:border-sky-400"
                   />
-                  <p className="text-[10px] text-slate-400">Enlace directo a tu Bot o Grupo de Telegram de dudas y respuestas automáticas.</p>
+                  <p className="text-[10px] text-slate-400">Enlace donde los usuarios hacen clic para iniciar chat con tu Bot de Telegram.</p>
                 </div>
               </div>
 
               {/* Mensaje de Instrucciones para la Plataforma */}
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-slate-300 flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-sky-400" /> Instrucciones de Inicio para Nuevos Usuarios (Telegram)
+                  <FileText className="h-3.5 w-3.5 text-sky-400" /> Mensaje de Bienvenida en Telegram
                 </Label>
                 <Textarea 
                   value={telegramInstructionsText}
@@ -1167,26 +1271,26 @@ export default function AdminDashboard() {
                   placeholder="Escribe el texto informativo de bienvenida y los pasos clave que verán los usuarios..."
                   className="rounded-xl bg-slate-950/80 text-white border-white/10 text-xs font-medium focus:border-sky-400"
                 />
-                <p className="text-[10px] text-slate-400">Este mensaje se mostrará en los paneles de soporte e instrucción para guiar a tus afiliados y clientes.</p>
+                <p className="text-[10px] text-slate-400">Este mensaje guía a afiliados y clientes nuevos en sus primeros pasos.</p>
               </div>
 
               {/* BARRA DE ACCIONES TELEGRAM */}
-              <div className="pt-6 border-t border-white/10 flex items-center justify-between gap-4">
+              <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <a 
                   href={telegramChannelUrl || '#'} 
                   target="_blank" 
                   rel="noreferrer"
                   className="text-xs text-sky-400 font-bold hover:underline flex items-center gap-1.5"
                 >
-                  <Send className="h-3.5 w-3.5" /> Probar Apertura de Canal Telegram ↗
+                  <Send className="h-3.5 w-3.5" /> Probar Canal Telegram en Nueva Pestaña ↗
                 </a>
 
                 <Button
                   type="submit"
                   disabled={isSavingTelegram}
-                  className="h-12 px-8 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase shadow-lg shadow-sky-500/20 active:scale-95 transition-all"
+                  className="w-full sm:w-auto h-12 bg-sky-500 hover:bg-sky-600 text-slate-950 font-black text-xs uppercase px-8 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20"
                 >
-                  {isSavingTelegram ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4 mr-2" /> Guardar Conexión Telegram</>}
+                  {isSavingTelegram ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4 mr-1" /> Guardar Enlaces de Telegram</>}
                 </Button>
               </div>
             </form>
