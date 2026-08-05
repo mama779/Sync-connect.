@@ -297,17 +297,19 @@ function BuyerRegisterContent() {
             />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-[13px] font-bold text-[#111]">Contraseña</Label>
-            <Input 
-              type="password" 
-              value={formData.password} 
-              onChange={e => setFormData({...formData, password: e.target.value})} 
-              required 
-              placeholder="Al menos 6 caracteres"
-              className="h-8 border-[#888c8c] focus:border-[#e77600] focus:ring-[3px] focus:ring-[#e77600]/20 rounded-[3px] px-2 py-1 text-[13px] font-medium" 
-            />
-          </div>
+          {!existingUser && (
+            <div className="space-y-1">
+              <Label className="text-[13px] font-bold text-[#111]">Contraseña</Label>
+              <Input 
+                type="password" 
+                value={formData.password} 
+                onChange={e => setFormData({...formData, password: e.target.value})} 
+                required={!existingUser} 
+                placeholder="Al menos 6 caracteres"
+                className="h-8 border-[#888c8c] focus:border-[#e77600] focus:ring-[3px] focus:ring-[#e77600]/20 rounded-[3px] px-2 py-1 text-[13px] font-medium" 
+              />
+            </div>
+          )}
 
           <Button 
             type="submit"

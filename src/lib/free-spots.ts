@@ -151,10 +151,10 @@ export async function consumeFreeSpotIfEligible(
 
     if (isEligible) {
       const docRef = doc(db, 'site_config', 'free_invitations');
-      await updateDoc(docRef, {
+      await setDoc(docRef, {
         usedSpots: increment(1),
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
       return true;
     }
     return false;

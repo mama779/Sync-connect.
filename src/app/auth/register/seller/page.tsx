@@ -196,7 +196,14 @@ function SellerRegisterContent() {
 
   const handleSellerRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth?.currentUser || !db) return;
+    if (!auth || !db) return;
+
+    const activeUser = auth.currentUser || existingUser;
+    if (!activeUser) {
+      setErrorMsg("No se detectó una sesión activa. Por favor identifíquese con su correo o Google en el paso 1.");
+      setStep('google');
+      return;
+    }
 
     if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.cedula.trim()) {
       setErrorMsg("Por favor complete todos los datos personales obligatorios.");
@@ -206,8 +213,8 @@ function SellerRegisterContent() {
     setLoading(true);
     setErrorMsg(null);
 
-    const uid = auth.currentUser.uid;
-    const cleanEmail = auth.currentUser.email || '';
+    const uid = activeUser.uid;
+    const cleanEmail = activeUser.email || '';
 
     try {
       // Check free spots for seller
@@ -241,7 +248,7 @@ function SellerRegisterContent() {
         brandName: formData.brandName.trim() || `${formData.firstName.trim()} Store`,
         email: cleanEmail,
         whatsappNumber: '',
-        photoUrl: auth.currentUser.photoURL || '',
+        photoUrl: activeUser.photoURL || '',
         registeredAt: new Date().toISOString(),
         currentBalance: 0,
         status: initialStatus,

@@ -195,12 +195,20 @@ function AffiliateRegisterContent() {
   // Final Registration Step
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !auth.currentUser) return;
+    if (!auth) return;
+    
+    const activeUser = auth.currentUser || existingUser;
+    if (!activeUser) {
+      setErrorMsg("No se detectó una sesión activa. Por favor identifíquese con su correo o Google en el paso 1.");
+      setStep('google');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg(null);
 
-    const uid = auth.currentUser.uid;
-    const cleanEmail = auth.currentUser.email || '';
+    const uid = activeUser.uid;
+    const cleanEmail = activeUser.email || '';
 
     try {
       // Check if user is eligible for free registration
@@ -234,7 +242,7 @@ function AffiliateRegisterContent() {
         cedula: formData.cedula.trim(),
         email: cleanEmail,
         whatsappNumber: '',
-        photoUrl: auth.currentUser.photoURL || '',
+        photoUrl: activeUser.photoURL || '',
         registeredAt: new Date().toISOString(),
         currentBalance: 0,
         status: initialStatus,
@@ -471,7 +479,7 @@ function AffiliateRegisterContent() {
                   <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-black text-emerald-900 uppercase">Cuenta Vinculada</p>
-                    <p className="text-xs text-emerald-700 font-bold">{existingUser?.email}</p>
+                    <p className="text-xs text-emerald-700 font-bold">{existingUser?.email || auth?.currentUser?.email || 'Usuario Autenticado'}</p>
                   </div>
                 </div>
 
